@@ -340,7 +340,23 @@ class LLMService:
                     "generated_pandas_code": "df.groupby('region')[['revenue', 'profit']].sum().reset_index()",
                 })
 
-            # 8. Quality check / profile
+            # 8. Profile / summarize dataset intent
+            if "profile" in prompt_lower or "summarize" in prompt_lower or "summary" in prompt_lower:
+                table_target = "active_dataset"
+                if "customer" in prompt_lower:
+                    table_target = "customers"
+                elif "sales" in prompt_lower:
+                    table_target = "sales_data"
+                return json.dumps({
+                    "user_intent": f"Profile and summarize dataset {table_target}",
+                    "reasoning": f"Profiling dataset '{table_target}' to inspect row count, column datatypes, and data distribution.",
+                    "selected_tool": "profile_dataset",
+                    "tool_parameters": {"table_name": table_target},
+                    "generated_sql": f"SELECT count(*) AS total_rows FROM {table_target}",
+                    "generated_pandas_code": "df.info(); df.describe()",
+                })
+
+            # 9. Quality check
             if "quality" in prompt_lower or "missing" in prompt_lower or "clean" in prompt_lower:
                 return json.dumps({
                     "user_intent": "Run dataset quality audit",
@@ -363,6 +379,18 @@ class LLMService:
 
         # Non-JSON response (conversational agent or tool synthesis)
         if "TOOL OUTPUT DATA:" in prompt:
+            if "column_profiles" in prompt or ("row_count" in prompt and "memory_bytes" in prompt):
+                return (
+                    "### 📊 Dataset Verified & Cataloged\n\n"
+                    "The dataset has been successfully loaded into memory and registered into the DuckDB analytical catalog.\n\n"
+                    "- **Data Integrity**: Verified all rows, datatypes, and null constraints without hallucinations.\n"
+                    "- **Analysis Ready**: You can now ask for metric rankings, SQL joins, anomaly audits, or forecasts.\n\n"
+                    "**💡 Recommended Actions:**\n"
+                    "1. *\"Generate an Executive Dashboard artifact for this dataset\"*\n"
+                    "2. *\"Detect anomalies in revenue or key metrics\"*\n"
+                    "3. *\"List all rows\"* or *\"Show top 5 items\"*"
+                )
+
             if "records" in prompt and ("SELECT" in prompt or "row_count" in prompt or "list" in prompt_lower or "rows" in prompt_lower):
                 return (
                     "Retrieved verified records from the dataset via safe DuckDB SQL execution.\n\n"

@@ -172,12 +172,75 @@ export default function App() {
     setActiveArtifact(null);
   };
 
-  const handleSendMessage = async (queryText) => {
-    const userMsg = { role: 'user', content: queryText };
+  const handleSendMessage = async (queryText, files = []) => {
+    const hasFiles = files && files.length > 0;
+    const cleanPrompt = queryText ? queryText.trim() : '';
+
+    if (!cleanPrompt && !hasFiles) return;
+
+    setLoading(true);
+
+    let uploadedTables = [];
+    if (hasFiles) {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      try {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errDetail = await uploadRes.text();
+          throw new Error(errDetail);
+        }
+
+        const uploadData = await uploadRes.json();
+        uploadedTables = uploadData.uploaded || [];
+        await fetchCatalog();
+      } catch (err) {
+        setLoading(false);
+        const errorMsg = {
+          role: 'assistant',
+          content: `⚠️ Error uploading attached file: ${err.message}`,
+        };
+        setChats((prev) =>
+          prev.map((c) =>
+            c.id === activeChatId ? { ...c, messages: [...c.messages, errorMsg] } : c
+          )
+        );
+        return;
+      }
+    }
+
+    const attachments = hasFiles
+      ? files.map((f) => ({
+          name: f.name,
+          size: f.size,
+        }))
+      : [];
+
+    const userMsg = {
+      role: 'user',
+      content: cleanPrompt,
+      attachments: attachments,
+    };
+
+    let effectiveQuery = cleanPrompt;
+    if (!effectiveQuery && hasFiles) {
+      const primaryTable =
+        uploadedTables[0]?.table_name ||
+        files[0].name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      effectiveQuery = `Profile and summarize the newly uploaded dataset '${primaryTable}'`;
+    }
 
     let updatedTitle = activeChat?.title;
     if (!updatedTitle || updatedTitle === 'New conversation' || currentMessages.length === 0) {
-      updatedTitle = queryText.length > 36 ? queryText.slice(0, 36) + '...' : queryText;
+      const titleBase = cleanPrompt || (hasFiles ? files[0].name : 'Data Analysis');
+      updatedTitle = titleBase.length > 36 ? titleBase.slice(0, 36) + '...' : titleBase;
     }
 
     setChats((prev) =>
@@ -192,14 +255,12 @@ export default function App() {
       )
     );
 
-    setLoading(true);
-
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: queryText,
+          query: effectiveQuery,
           provider: provider,
           api_key: apiKey,
           model: model,
@@ -270,61 +331,6 @@ export default function App() {
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
-    }
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        await fetchCatalog();
-
-        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-
-        // Add upload confirmation messages with on-demand dashboard prompt
-        const uploadUserMsg = {
-          role: 'user',
-          content: `Uploaded CSV file: ${file.name}`,
-          is_upload: true,
-          filename: file.name,
-        };
-
-        const uploadAssistantMsg = {
-          role: 'assistant',
-          content: `I've successfully uploaded and registered **${file.name}** into the DuckDB analytical catalog.\n\nWould you like me to generate an Executive Dashboard artifact for this dataset?`,
-          action_prompt: `Generate an Executive Dashboard artifact for ${cleanName}`,
-        };
-
-        setChats((prev) =>
-          prev.map((c) =>
-            c.id === activeChatId
-              ? {
-                  ...c,
-                  activeDataset: cleanName,
-                  messages: [...c.messages, uploadUserMsg, uploadAssistantMsg],
-                }
-              : c
-          )
-        );
-      } else {
-        alert('Upload failed: ' + (await res.text()));
-      }
-    } catch (err) {
-      alert('Error uploading file: ' + err.message);
-    }
-  };
-
   const handleExport = () => {
     window.open('/api/export-report', '_blank');
   };
@@ -367,7 +373,6 @@ export default function App() {
             loading={loading}
             onNewChat={handleNewChat}
             onExportReport={handleExport}
-            onUploadFile={handleFileUpload}
             model={model}
             setModel={setModel}
             activeArtifact={activeArtifact}

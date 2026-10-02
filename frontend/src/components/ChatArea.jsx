@@ -20,6 +20,8 @@ import {
   LayoutDashboard,
   SquarePen,
   ArrowUpRight,
+  X,
+  UploadCloud,
 } from 'lucide-react';
 import ChartRenderer from './ChartRenderer';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -34,13 +36,14 @@ export default function ChatArea({
   loading,
   onNewChat,
   onExportReport,
-  onUploadFile,
   model,
   setModel,
   activeArtifact,
   onOpenArtifact,
 }) {
   const [input, setInput] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [openThinking, setOpenThinking] = useState({});
   const [copiedCodeId, setCopiedCodeId] = useState(null);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState(null);
@@ -57,11 +60,40 @@ export default function ChatArea({
     scrollToBottom();
   }, [messages, loading]);
 
+  const handleFilesAdded = (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const newItems = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (file.name.toLowerCase().endsWith('.csv') || file.type.includes('csv') || file.type === '') {
+        newItems.push({
+          id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          file: file,
+          name: file.name,
+          size: file.size,
+        });
+      }
+    }
+    if (newItems.length > 0) {
+      setAttachedFiles((prev) => [...prev, ...newItems]);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    handleFilesAdded(e.target.files);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleRemoveFile = (id) => {
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
-    onSendMessage(input.trim());
+    if ((!input.trim() && attachedFiles.length === 0) || loading) return;
+    onSendMessage(input.trim(), attachedFiles.map((f) => f.file));
     setInput('');
+    setAttachedFiles([]);
   };
 
   const handleCardClick = (promptText) => {
@@ -120,14 +152,69 @@ export default function ChatArea({
   ];
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      position: 'relative',
-      backgroundColor: 'var(--bg-main)',
-      overflow: 'hidden',
-    }}>
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          setIsDragging(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        handleFilesAdded(e.dataTransfer.files);
+      }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        position: 'relative',
+        backgroundColor: 'var(--bg-main)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Drag & Drop Visual Overlay (ChatGPT style) */}
+      {isDragging && (
+        <div style={{
+          position: 'absolute',
+          inset: '16px',
+          backgroundColor: 'rgba(23, 23, 23, 0.90)',
+          backdropFilter: 'blur(6px)',
+          border: '2px dashed #10a37f',
+          borderRadius: '20px',
+          zIndex: 60,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '14px',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(16, 163, 127, 0.15)',
+            border: '1px solid #10a37f',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#10a37f',
+          }}>
+            <UploadCloud size={32} />
+          </div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 600, color: '#ececec' }}>
+            Drop CSV files to attach
+          </div>
+          <div style={{ fontSize: '0.86rem', color: '#8e8e8e' }}>
+            Files will be attached to your prompt
+          </div>
+        </div>
+      )}
+
       {/* Top Header Bar */}
       <header style={{
         height: '52px',
@@ -444,14 +531,61 @@ export default function ChatArea({
               {msg.role === 'user' ? (
                 /* User Message */
                 <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <div className="user-bubble">
-                    {msg.is_upload && (
+                  <div className="user-bubble" style={{ maxWidth: '85%' }}>
+                    {/* ChatGPT-style Attached File Pill Cards */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        marginBottom: msg.content ? '10px' : '0',
+                      }}>
+                        {msg.attachments.map((att, aIdx) => (
+                          <div
+                            key={aIdx}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              backgroundColor: '#262626',
+                              border: '1px solid #383838',
+                              borderRadius: '12px',
+                              padding: '8px 12px',
+                            }}
+                          >
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              backgroundColor: 'rgba(16, 163, 127, 0.15)',
+                              border: '1px solid rgba(16, 163, 127, 0.3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#10a37f',
+                              flexShrink: 0,
+                            }}>
+                              <FileSpreadsheet size={16} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#ececec' }}>
+                                {att.name}
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: '#8e8e8e' }}>
+                                CSV {att.size ? `• ${(att.size / 1024).toFixed(1)} KB` : ''}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {msg.is_upload && !msg.attachments && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', color: '#10a37f' }}>
                         <FileSpreadsheet size={16} />
                         <span style={{ fontWeight: 600 }}>File Upload</span>
                       </div>
                     )}
-                    {msg.content}
+                    {msg.content && <div>{msg.content}</div>}
                   </div>
                 </div>
               ) : (
@@ -926,81 +1060,160 @@ export default function ChatArea({
         >
           <div style={{
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             backgroundColor: 'var(--bg-input)',
             border: '1px solid var(--border-input)',
             borderRadius: '26px',
-            padding: '6px 8px 6px 14px',
+            padding: attachedFiles.length > 0 ? '10px 14px 8px 14px' : '6px 8px 6px 14px',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
             gap: '8px',
           }}>
-            {/* Attachment Button for CSV upload directly in chat */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload CSV dataset"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#b4b4b4',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '50%',
+            {/* Attachment Chips Preview above text input (ChatGPT Style) */}
+            {attachedFiles.length > 0 && (
+              <div style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#383838')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <Paperclip size={18} />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              multiple
-              onChange={onUploadFile}
-              style={{ display: 'none' }}
-            />
+                flexWrap: 'wrap',
+                gap: '8px',
+                paddingBottom: '8px',
+                borderBottom: '1px solid #2d2d2d',
+              }}>
+                {attachedFiles.map((f) => (
+                  <div
+                    key={f.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#212121',
+                      border: '1px solid #383838',
+                      borderRadius: '12px',
+                      padding: '6px 10px',
+                    }}
+                  >
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '7px',
+                      backgroundColor: 'rgba(16, 163, 127, 0.15)',
+                      border: '1px solid rgba(16, 163, 127, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#10a37f',
+                      flexShrink: 0,
+                    }}>
+                      <FileSpreadsheet size={15} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#ececec', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {f.name}
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: '#8e8e8e' }}>
+                        CSV • {(f.size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(f.id)}
+                      title="Remove file"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#737373',
+                        cursor: 'pointer',
+                        padding: '3px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginLeft: '4px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#fff';
+                        e.currentTarget.style.backgroundColor = '#383838';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#737373';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Prompt Input Field */}
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={`Message AI Data Analyst... (${activeDataset || 'ready'})`}
-              disabled={loading}
-              style={{
-                flexGrow: 1,
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: '#ececec',
-                fontSize: '0.95rem',
-                outline: 'none',
-              }}
-            />
+            {/* Input Row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Attachment Button for CSV upload directly in chat */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach CSV dataset"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#b4b4b4',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#383838')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Paperclip size={18} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                multiple
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
 
-            {/* Circular Send Button */}
-            <button
-              type="submit"
-              disabled={!input.trim() || loading}
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '50%',
-                border: 'none',
-                backgroundColor: input.trim() && !loading ? '#fff' : '#383838',
-                color: input.trim() && !loading ? '#000' : '#737373',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: input.trim() && !loading ? 'pointer' : 'default',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <ArrowUp size={18} />
-            </button>
+              {/* Prompt Input Field */}
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={attachedFiles.length > 0 ? "Ask a question about the attached file(s)..." : `Message AI Data Analyst... (${activeDataset || 'ready'})`}
+                disabled={loading}
+                style={{
+                  flexGrow: 1,
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#ececec',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                }}
+              />
+
+              {/* Circular Send Button */}
+              <button
+                type="submit"
+                disabled={(!input.trim() && attachedFiles.length === 0) || loading}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  backgroundColor: (input.trim() || attachedFiles.length > 0) && !loading ? '#fff' : '#383838',
+                  color: (input.trim() || attachedFiles.length > 0) && !loading ? '#000' : '#737373',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: (input.trim() || attachedFiles.length > 0) && !loading ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <ArrowUp size={18} />
+              </button>
+            </div>
           </div>
         </form>
 
