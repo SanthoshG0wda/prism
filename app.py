@@ -76,34 +76,73 @@ def get_session_state() -> SessionState:
     return st.session_state.data_state
 
 
-def get_agent(state: SessionState, api_key: str = "", model_name: str = "gpt-4o-mini") -> DataAnalystAgent:
+def get_agent(
+    state: SessionState,
+    provider: str = "nvidia",
+    api_key: str = "",
+    model_name: str = "meta/llama-3.3-70b-instruct",
+    base_url: str = "https://integrate.api.nvidia.com/v1",
+) -> DataAnalystAgent:
     """Instantiates the agent with updated settings."""
     settings = LLMSettings(
-        LLM_API_KEY=api_key or os.getenv("LLM_API_KEY", ""),
-        LLM_MODEL=model_name or os.getenv("LLM_MODEL", "gpt-4o-mini"),
+        LLM_PROVIDER=provider,
+        LLM_API_KEY=api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY", ""),
+        LLM_MODEL=model_name,
+        LLM_BASE_URL=base_url,
     )
     llm_service = LLMService(settings=settings)
     return DataAnalystAgent(session_state=state, llm_service=llm_service)
 
 
-def render_sidebar(state: SessionState) -> tuple[str, str]:
+def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
     """Renders the left control panel: uploads, dataset selector, and configuration."""
     with st.sidebar:
         st.title("⚙️ Control Panel")
 
         # Configuration Section
-        with st.expander("🔑 LLM Configuration", expanded=False):
-            api_key = st.text_input(
-                "API Key (OpenAI / Compatible)",
-                type="password",
-                value=os.getenv("LLM_API_KEY", ""),
-                help="Optional. If omitted, built-in deterministic heuristic orchestrator will be used.",
-            )
-            model_name = st.selectbox(
-                "Model",
-                ["gpt-4o-mini", "gpt-4o", "gemini-1.5-pro", "gemini-1.5-flash", "local-ollama"],
+        with st.expander("🟢 AI Provider: NVIDIA NIM", expanded=False):
+            provider_choice = st.selectbox(
+                "Provider",
+                ["NVIDIA NIM", "OpenAI / Compatible", "Local (Ollama)"],
                 index=0,
             )
+
+            if provider_choice == "NVIDIA NIM":
+                provider_key = "nvidia"
+                base_url = "https://integrate.api.nvidia.com/v1"
+                model_options = [
+                    "meta/llama-3.3-70b-instruct",
+                    "nvidia/llama-3.1-nemotron-70b-instruct",
+                    "meta/llama-3.1-70b-instruct",
+                    "meta/llama-3.1-8b-instruct",
+                    "mistralai/mistral-large-2-instruct",
+                ]
+                key_placeholder = "nvapi-..."
+                key_help = "Get a free key from https://build.nvidia.com/"
+                env_key = os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY", "")
+            elif provider_choice == "OpenAI / Compatible":
+                provider_key = "openai"
+                base_url = "https://api.openai.com/v1"
+                model_options = ["gpt-4o-mini", "gpt-4o"]
+                key_placeholder = "sk-..."
+                key_help = "OpenAI or compatible provider API key"
+                env_key = os.getenv("LLM_API_KEY", "")
+            else:
+                provider_key = "ollama"
+                base_url = "http://localhost:11434/v1"
+                model_options = ["llama3.1", "mistral", "qwen2.5"]
+                key_placeholder = "ollama"
+                key_help = "Local Ollama server"
+                env_key = "ollama"
+
+            api_key = st.text_input(
+                f"{provider_choice} API Key",
+                type="password",
+                value=env_key,
+                placeholder=key_placeholder,
+                help=key_help,
+            )
+            model_name = st.selectbox("Model", model_options, index=0)
 
         st.markdown("---")
         st.subheader("📂 Upload Datasets")
@@ -194,7 +233,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str]:
             state.clear_history()
             st.rerun()
 
-    return api_key, model_name
+    return provider_key, api_key, model_name, base_url
 
 
 def render_response(resp: AgentResponse) -> None:
@@ -345,8 +384,14 @@ def main() -> None:
     )
 
     state = get_session_state()
-    api_key, model_name = render_sidebar(state)
-    agent = get_agent(state, api_key=api_key, model_name=model_name)
+    provider_key, api_key, model_name, base_url = render_sidebar(state)
+    agent = get_agent(
+        state,
+        provider=provider_key,
+        api_key=api_key,
+        model_name=model_name,
+        base_url=base_url,
+    )
 
     if not state.datasets:
         st.warning("👈 Please upload one or more CSV files or click **'Load Sample Datasets'** in the sidebar to begin.")

@@ -1,6 +1,7 @@
 """
-LLM Service abstraction supporting OpenAI-compatible APIs (OpenAI, Gemini OpenAI endpoint, Groq, Ollama)
-and an intelligent offline heuristic mode for development/testing when no API key is provided.
+LLM Service abstraction supporting NVIDIA NIM (NVIDIA Inference Microservices),
+OpenAI-compatible APIs (OpenAI, Groq, Ollama), and an intelligent offline heuristic
+engine for development/testing when no API key is provided.
 """
 
 import json
@@ -16,35 +17,58 @@ logger = get_logger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+# Default NVIDIA NIM parameters
+NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_DEFAULT_MODEL = "meta/llama-3.3-70b-instruct"
+
 
 class LLMSettings(BaseSettings):
-    """Configuration settings for LLM integrations."""
+    """Configuration settings for LLM integrations with NVIDIA NIM as premier provider."""
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    provider: str = Field(default="mock", alias="LLM_PROVIDER")
-    model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
-    api_key: Optional[str] = Field(default=None, alias="LLM_API_KEY")
-    base_url: str = Field(default="https://api.openai.com/v1", alias="LLM_BASE_URL")
-    temperature: float = Field(default=0.0, alias="LLM_TEMPERATURE")
-    timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS")
+    provider: str = Field(default="nvidia", alias="LLM_PROVIDER")
+    model: str = Field(default=NVIDIA_DEFAULT_MODEL, alias="LLM_MODEL")
+    api_key: Optional[str] = Field(default=None, alias="NVIDIA_API_KEY")
+    llm_api_key: Optional[str] = Field(default=None, alias="LLM_API_KEY")
+    base_url: str = Field(default=NVIDIA_NIM_BASE_URL, alias="LLM_BASE_URL")
+    temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
+    timeout_seconds: int = Field(default=45, alias="LLM_TIMEOUT_SECONDS")
+
+    def get_effective_api_key(self) -> Optional[str]:
+        """Returns the configured API key from either NVIDIA_API_KEY or LLM_API_KEY."""
+        return self.api_key or self.llm_api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY")
 
 
 class LLMService:
     """
-    Service client for interacting with Large Language Models.
+    Service client for interacting with Large Language Models via NVIDIA NIM or compatible endpoints.
     Separates LLM transport from prompt engineering and agent logic.
     """
 
     def __init__(self, settings: Optional[LLMSettings] = None) -> None:
         self.settings = settings or LLMSettings()
+
+        # Adjust defaults if NVIDIA provider is selected
+        if self.settings.provider.lower() in ("nvidia", "nvidia-nim", "nim"):
+            if not self.settings.base_url or "api.openai.com" in self.settings.base_url:
+                self.settings.base_url = NVIDIA_NIM_BASE_URL
+            if not self.settings.model or "gpt-" in self.settings.model:
+                self.settings.model = NVIDIA_DEFAULT_MODEL
+
+        # Resolve API key
+        resolved_key = self.settings.get_effective_api_key()
+        if resolved_key:
+            self.settings.api_key = resolved_key
+
         logger.info(
-            f"Initialized LLMService with provider='{self.settings.provider}', model='{self.settings.model}'"
+            f"Initialized LLMService with provider='{self.settings.provider}', "
+            f"model='{self.settings.model}', base_url='{self.settings.base_url}'"
         )
 
     def is_configured(self) -> bool:
         """Checks if a valid live API key is configured."""
         key = self.settings.api_key
-        return bool(key and key != "your-api-key-here" and len(key.strip()) > 5)
+        return bool(key and key not in ("your-api-key-here", "nvapi-your-key-here") and len(key.strip()) > 5)
 
     def generate(
         self,
@@ -53,8 +77,8 @@ class LLMService:
         json_mode: bool = False,
     ) -> str:
         """
-        Sends generation request to the configured LLM provider.
-        Falls back to offline reasoning heuristics if no API key is supplied.
+        Sends generation request to configured provider (NVIDIA NIM or OpenAI-compatible).
+        Falls back to offline deterministic heuristics if no API key is supplied.
         """
         if not self.is_configured():
             logger.info("No live LLM API key configured. Executing offline heuristic orchestrator.")
@@ -69,14 +93,14 @@ class LLMService:
         system_prompt: Optional[str] = None,
     ) -> T:
         """
-        Generates and parses a structured response adhering to a Pydantic model schema.
+        Generates and parses a structured response adhering strictly to a Pydantic model schema.
         """
         schema_json = json.dumps(response_model.model_json_schema(), indent=2)
         augmented_system_prompt = (
             f"{system_prompt or ''}\n\n"
             f"IMPORTANT: You MUST respond strictly with a valid JSON object complying with this JSON Schema:\n"
             f"{schema_json}\n"
-            f"Do not include any Markdown fences or text outside the JSON object."
+            f"Do not include any Markdown fences or conversational text outside the raw JSON object."
         ).strip()
 
         raw_response = self.generate(
@@ -99,11 +123,12 @@ class LLMService:
         system_prompt: Optional[str] = None,
         json_mode: bool = False,
     ) -> str:
-        """Makes an HTTP POST request to an OpenAI-compatible /chat/completions endpoint."""
+        """Makes an HTTP POST request to an OpenAI-compatible /chat/completions endpoint (e.g. NVIDIA NIM)."""
         url = f"{self.settings.base_url.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.settings.api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
         }
 
         messages: List[Dict[str, str]] = []
@@ -115,21 +140,32 @@ class LLMService:
             "model": self.settings.model,
             "messages": messages,
             "temperature": self.settings.temperature,
+            "max_tokens": 1024,
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        response = requests.post(url, headers=headers, json=payload, timeout=self.settings.timeout_seconds)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"LLM API Error {response.status_code}: {response.text}"
-            )
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=self.settings.timeout_seconds)
+            # If NIM model rejects response_format={"type": "json_object"}, retry without it
+            if response.status_code == 400 and json_mode and "response_format" in response.text:
+                logger.warning("NIM model does not accept response_format parameter. Retrying without it.")
+                payload.pop("response_format", None)
+                response = requests.post(url, headers=headers, json=payload, timeout=self.settings.timeout_seconds)
 
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"LLM API Error ({self.settings.provider}) {response.status_code}: {response.text}"
+                )
+
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        except requests.exceptions.RequestException as exc:
+            logger.error(f"HTTP request to LLM provider failed: {str(exc)}")
+            raise RuntimeError(f"Connection to LLM provider failed: {str(exc)}") from exc
 
     def _extract_json(self, text: str) -> str:
-        """Strips markdown code blocks and whitespace to isolate JSON."""
+        """Strips markdown code blocks and whitespace to isolate raw JSON."""
         trimmed = text.strip()
         if trimmed.startswith("```json"):
             trimmed = trimmed[7:]
@@ -139,7 +175,7 @@ class LLMService:
             trimmed = trimmed[:-3]
         trimmed = trimmed.strip()
 
-        # If wrapped inside some text, find outermost braces
+        # If wrapped inside some other text, extract outermost braces
         start = trimmed.find("{")
         end = trimmed.rfind("}")
         if start != -1 and end != -1:
@@ -153,10 +189,9 @@ class LLMService:
         json_mode: bool = False,
     ) -> str:
         """
-        Deterministic heuristic reasoning engine used when no external API key is provided.
+        Deterministic heuristic reasoning engine used when no live API key is provided.
         Maps natural language query intents directly to deterministic analysis tool calls.
         """
-        # Isolate actual user question if embedded in an agent planning prompt
         if "USER QUESTION:" in prompt:
             user_part = prompt.split("USER QUESTION:")[-1]
             if "Based on the dataset schema" in user_part:
@@ -169,7 +204,6 @@ class LLMService:
         if json_mode and "selected_tool" in (system_prompt or ""):
             # 1. Anomaly detection intent
             if "anomal" in prompt_lower or "outlier" in prompt_lower:
-                # Find metric column if present
                 metric = "revenue"
                 for candidate in ["profit", "units_sold", "revenue", "unit_price", "discount"]:
                     if candidate in prompt_lower:
@@ -241,7 +275,7 @@ class LLMService:
                     "generated_pandas_code": "df.assign(date=pd.to_datetime(df['date'])).set_index('date').resample('ME')['revenue'].sum().reset_index()",
                 })
 
-            # 4. Underperforming products / bottom k intent
+            # 5. Underperforming products / bottom k intent
             if "underperform" in prompt_lower or "worst" in prompt_lower or "lowest" in prompt_lower:
                 group_col = "product" if "product" in prompt_lower else "region"
                 return json.dumps({
@@ -253,7 +287,7 @@ class LLMService:
                     "generated_pandas_code": f"df.groupby('{group_col}')['revenue'].sum().reset_index().sort_values(by='revenue', ascending=True).head(5)",
                 })
 
-            # 5. Top customers / regions / products
+            # 6. Top customers / regions / products
             if "top" in prompt_lower or "highest" in prompt_lower or "most" in prompt_lower:
                 group_col = "region"
                 if "customer" in prompt_lower:
@@ -272,7 +306,7 @@ class LLMService:
                     "generated_pandas_code": f"df.groupby('{group_col}')['{metric}'].sum().reset_index().sort_values(by='{metric}', ascending=False).head(5)",
                 })
 
-            # 6. SQL specific query request
+            # 7. SQL specific query request
             if "sql" in prompt_lower:
                 sql_q = "SELECT region, SUM(revenue) AS total_revenue, SUM(profit) AS total_profit FROM active_dataset GROUP BY region ORDER BY total_revenue DESC"
                 return json.dumps({
@@ -284,7 +318,7 @@ class LLMService:
                     "generated_pandas_code": "df.groupby('region')[['revenue', 'profit']].sum().reset_index()",
                 })
 
-            # 7. Quality check / profile
+            # 8. Quality check / profile
             if "quality" in prompt_lower or "missing" in prompt_lower or "clean" in prompt_lower:
                 return json.dumps({
                     "user_intent": "Run dataset quality audit",
@@ -298,14 +332,14 @@ class LLMService:
             # Default fallback: general aggregation
             return json.dumps({
                 "user_intent": "General dataset analysis and summary",
-                "reasoning": "Defaulting to top_k revenue analysis by region as default analytical entry point.",
+                "reasoning": "Defaulting to top_k revenue analysis by region as analytical entry point.",
                 "selected_tool": "top_k_analysis",
                 "tool_parameters": {"group_col": "region", "metric_col": "revenue", "k": 5, "ascending": False, "agg_func": "sum"},
                 "generated_sql": "SELECT region, SUM(revenue) AS total_revenue FROM active_dataset GROUP BY region ORDER BY total_revenue DESC",
                 "generated_pandas_code": "df.groupby('region')['revenue'].sum().reset_index().sort_values(by='revenue', ascending=False)",
             })
 
-        # Non-JSON synthesis prompt response
+        # Non-JSON synthesis response
         return (
             f"Based on the deterministic calculation from the dataset:\n"
             f"- Analysis executed successfully.\n"
