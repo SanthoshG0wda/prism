@@ -54,6 +54,64 @@ class DataAnalystAgent:
         start_time = time.perf_counter()
         logger.info(f"Agent received question: '{user_question}'")
 
+        # Handle natural conversational greetings, capabilities, and polite remarks
+        clean_q = user_question.strip().lower().rstrip("!?. ")
+        greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening", "howdy", "sup", "yo"}
+        general_inquiries = {"who are you", "what can you do", "help", "what are you", "what are your capabilities", "introduce yourself"}
+
+        if clean_q in greetings or clean_q in general_inquiries:
+            table_info = []
+            for name, meta in self.state.metadata_cache.items():
+                is_act = " (Active)" if name == self.state.active_dataset_name else ""
+                table_info.append(f"- **`{name}`**{is_act}: {meta.row_count} rows, {meta.column_count} columns")
+            tables_str = "\n".join(table_info) if table_info else "- *No dataset currently uploaded. Attach a CSV to get started!*"
+
+            welcome_msg = (
+                f"Hello! I am your **AI Data Analyst**, powered by a deterministic **DuckDB SQL engine** and **NVIDIA NIM (`muse-glimmer`)**.\n\n"
+                f"I analyze your tabular data with strict mathematical grounding—no invented numbers, full code transparency, and interactive visualizations.\n\n"
+                f"### 📂 Available Datasets:\n{tables_str}\n\n"
+                f"### 💡 Here is what you can ask me:\n"
+                f"1. **Executive Dashboard**: *\"Generate an Executive Dashboard artifact for {self.state.active_dataset_name or 'my dataset'}\"*\n"
+                f"2. **Outlier Audits**: *\"Detect anomalies in revenue and explain why they were flagged\"*\n"
+                f"3. **Rankings**: *\"What are the top 5 customers by revenue?\"* or *\"Which products are underperforming?\"*\n"
+                f"4. **Visual Trends**: *\"Show the monthly sales trend chart\"*\n"
+                f"5. **Predictive Projections**: *\"Forecast revenue for next 3 months with confidence intervals\"*\n"
+                f"6. **Safe SQL & Joins**: *\"Run a SQL join between sales_data and customers\"*\n\n"
+                f"You can attach your own CSV dataset anytime with the paperclip icon below, or ask any question to begin!"
+            )
+            total_elapsed = (time.perf_counter() - start_time) * 1000.0
+            resp = AgentResponse(
+                question=user_question,
+                answer=welcome_msg,
+                steps_explanation=[
+                    f"1. Recognized conversational greeting '{user_question}'.",
+                    f"2. Inspected active session datasets ({len(self.state.datasets)} tables loaded).",
+                    "3. Synthesized analyst welcome overview and guided recommendations.",
+                ],
+                tool_used="conversational_greeting",
+                execution_time_ms=total_elapsed,
+            )
+            self.state.add_message(role="user", content=user_question)
+            self.state.add_message(role="assistant", content=welcome_msg, metadata={"tool_used": "conversational_greeting"})
+            return resp
+
+        if clean_q in {"thank you", "thanks", "thx", "appreciate it", "great", "awesome", "perfect"}:
+            thank_msg = "You're very welcome! Let me know if you need any more data analysis, charts, or anomaly checks."
+            total_elapsed = (time.perf_counter() - start_time) * 1000.0
+            resp = AgentResponse(
+                question=user_question,
+                answer=thank_msg,
+                steps_explanation=[
+                    "1. Recognized user acknowledgment.",
+                    "2. Formulated polite conversational response.",
+                ],
+                tool_used="conversational_ack",
+                execution_time_ms=total_elapsed,
+            )
+            self.state.add_message(role="user", content=user_question)
+            self.state.add_message(role="assistant", content=thank_msg, metadata={"tool_used": "conversational_ack"})
+            return resp
+
         # Step 1 & 2: Dataset schema inspection
         active_df = self.state.get_active_df()
         if active_df is None:
