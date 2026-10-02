@@ -1,0 +1,314 @@
+"""
+LLM Service abstraction supporting OpenAI-compatible APIs (OpenAI, Gemini OpenAI endpoint, Groq, Ollama)
+and an intelligent offline heuristic mode for development/testing when no API key is provided.
+"""
+
+import json
+import os
+import re
+from typing import Any, Dict, List, Optional, Type, TypeVar
+import requests
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class LLMSettings(BaseSettings):
+    """Configuration settings for LLM integrations."""
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    provider: str = Field(default="mock", alias="LLM_PROVIDER")
+    model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
+    api_key: Optional[str] = Field(default=None, alias="LLM_API_KEY")
+    base_url: str = Field(default="https://api.openai.com/v1", alias="LLM_BASE_URL")
+    temperature: float = Field(default=0.0, alias="LLM_TEMPERATURE")
+    timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS")
+
+
+class LLMService:
+    """
+    Service client for interacting with Large Language Models.
+    Separates LLM transport from prompt engineering and agent logic.
+    """
+
+    def __init__(self, settings: Optional[LLMSettings] = None) -> None:
+        self.settings = settings or LLMSettings()
+        logger.info(
+            f"Initialized LLMService with provider='{self.settings.provider}', model='{self.settings.model}'"
+        )
+
+    def is_configured(self) -> bool:
+        """Checks if a valid live API key is configured."""
+        key = self.settings.api_key
+        return bool(key and key != "your-api-key-here" and len(key.strip()) > 5)
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False,
+    ) -> str:
+        """
+        Sends generation request to the configured LLM provider.
+        Falls back to offline reasoning heuristics if no API key is supplied.
+        """
+        if not self.is_configured():
+            logger.info("No live LLM API key configured. Executing offline heuristic orchestrator.")
+            return self._heuristic_offline_completion(prompt, system_prompt, json_mode)
+
+        return self._call_openai_compatible_api(prompt, system_prompt, json_mode)
+
+    def generate_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        system_prompt: Optional[str] = None,
+    ) -> T:
+        """
+        Generates and parses a structured response adhering to a Pydantic model schema.
+        """
+        schema_json = json.dumps(response_model.model_json_schema(), indent=2)
+        augmented_system_prompt = (
+            f"{system_prompt or ''}\n\n"
+            f"IMPORTANT: You MUST respond strictly with a valid JSON object complying with this JSON Schema:\n"
+            f"{schema_json}\n"
+            f"Do not include any Markdown fences or text outside the JSON object."
+        ).strip()
+
+        raw_response = self.generate(
+            prompt=prompt,
+            system_prompt=augmented_system_prompt,
+            json_mode=True,
+        )
+
+        cleaned_json_text = self._extract_json(raw_response)
+        try:
+            parsed_data = json.loads(cleaned_json_text)
+            return response_model.model_validate(parsed_data)
+        except Exception as exc:
+            logger.error(f"Failed to validate LLM response against {response_model.__name__}: {str(exc)}\nRaw: {raw_response}")
+            raise ValueError(f"LLM structured response failed validation: {str(exc)}") from exc
+
+    def _call_openai_compatible_api(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False,
+    ) -> str:
+        """Makes an HTTP POST request to an OpenAI-compatible /chat/completions endpoint."""
+        url = f"{self.settings.base_url.rstrip('/')}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.settings.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        messages: List[Dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload: Dict[str, Any] = {
+            "model": self.settings.model,
+            "messages": messages,
+            "temperature": self.settings.temperature,
+        }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+
+        response = requests.post(url, headers=headers, json=payload, timeout=self.settings.timeout_seconds)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"LLM API Error {response.status_code}: {response.text}"
+            )
+
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+
+    def _extract_json(self, text: str) -> str:
+        """Strips markdown code blocks and whitespace to isolate JSON."""
+        trimmed = text.strip()
+        if trimmed.startswith("```json"):
+            trimmed = trimmed[7:]
+        elif trimmed.startswith("```"):
+            trimmed = trimmed[3:]
+        if trimmed.endswith("```"):
+            trimmed = trimmed[:-3]
+        trimmed = trimmed.strip()
+
+        # If wrapped inside some text, find outermost braces
+        start = trimmed.find("{")
+        end = trimmed.rfind("}")
+        if start != -1 and end != -1:
+            return trimmed[start : end + 1]
+        return trimmed
+
+    def _heuristic_offline_completion(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False,
+    ) -> str:
+        """
+        Deterministic heuristic reasoning engine used when no external API key is provided.
+        Maps natural language query intents directly to deterministic analysis tool calls.
+        """
+        # Isolate actual user question if embedded in an agent planning prompt
+        if "USER QUESTION:" in prompt:
+            user_part = prompt.split("USER QUESTION:")[-1]
+            if "Based on the dataset schema" in user_part:
+                user_part = user_part.split("Based on the dataset schema")[0]
+            prompt_lower = user_part.lower()
+        else:
+            prompt_lower = prompt.lower()
+
+        # Check if planning step requested
+        if json_mode and "selected_tool" in (system_prompt or ""):
+            # 1. Anomaly detection intent
+            if "anomal" in prompt_lower or "outlier" in prompt_lower:
+                # Find metric column if present
+                metric = "revenue"
+                for candidate in ["profit", "units_sold", "revenue", "unit_price", "discount"]:
+                    if candidate in prompt_lower:
+                        metric = candidate
+                        break
+                return json.dumps({
+                    "user_intent": "Detect statistical anomalies and outliers in dataset",
+                    "reasoning": f"Identified request for outlier detection on numeric column '{metric}'. Selected detect_anomalies tool with IQR method.",
+                    "selected_tool": "detect_anomalies",
+                    "tool_parameters": {"column": metric, "method": "iqr", "threshold": 1.5},
+                    "generated_sql": None,
+                    "generated_pandas_code": f"detect_anomalies(df, column='{metric}', method='iqr', threshold=1.5)",
+                })
+
+            # 2. Chart / visualization intent
+            if any(w in prompt_lower for w in ["chart", "plot", "visual", "graph", "histogram", "scatter", "bar"]):
+                chart_type = "bar"
+                if "line" in prompt_lower or "trend" in prompt_lower:
+                    chart_type = "line"
+                elif "pie" in prompt_lower or "share" in prompt_lower:
+                    chart_type = "pie"
+                elif "scatter" in prompt_lower:
+                    chart_type = "scatter"
+                elif "box" in prompt_lower:
+                    chart_type = "box"
+
+                x_col = "region"
+                y_col = "revenue"
+                if "product" in prompt_lower:
+                    x_col = "product"
+                if "customer" in prompt_lower:
+                    x_col = "customer_name"
+                if "date" in prompt_lower or "month" in prompt_lower:
+                    x_col = "date"
+                if "profit" in prompt_lower:
+                    y_col = "profit"
+                elif "units" in prompt_lower:
+                    y_col = "units_sold"
+
+                return json.dumps({
+                    "user_intent": f"Generate {chart_type} visualization of {y_col} across {x_col}",
+                    "reasoning": f"Identified plotting request. Constructing {chart_type} chart for '{y_col}' grouped by '{x_col}'.",
+                    "selected_tool": "generate_chart",
+                    "tool_parameters": {"chart_type": chart_type, "x": x_col, "y": y_col, "title": f"{chart_type.title()} Chart: {y_col} by {x_col}"},
+                    "generated_sql": None,
+                    "generated_pandas_code": f"px.{chart_type}(df, x='{x_col}', y='{y_col}')",
+                })
+
+            # 3. Forecasting / Projection intent
+            if any(w in prompt_lower for w in ["forecast", "predict", "project", "future"]):
+                metric = "profit" if "profit" in prompt_lower else "revenue"
+                return json.dumps({
+                    "user_intent": f"Forecast future {metric} projections with 95% confidence intervals",
+                    "reasoning": f"Identified request for predictive forecasting on '{metric}'. Selected forecast_metric tool.",
+                    "selected_tool": "forecast_metric",
+                    "tool_parameters": {"date_col": "date", "metric_col": metric, "periods": 3, "freq": "ME"},
+                    "generated_sql": None,
+                    "generated_pandas_code": f"forecast_metric(df, date_col='date', metric_col='{metric}', periods=3)",
+                })
+
+            # 4. Time series / monthly trend intent
+            if "month" in prompt_lower or "trend" in prompt_lower or "time" in prompt_lower:
+                return json.dumps({
+                    "user_intent": "Analyze monthly time-series sales trend",
+                    "reasoning": "Detected trend inquiry. Resampling revenue by month end.",
+                    "selected_tool": "time_series_trend",
+                    "tool_parameters": {"date_col": "date", "metric_col": "revenue", "freq": "ME", "agg_func": "sum"},
+                    "generated_sql": "SELECT strftime(date, '%Y-%m') AS month, SUM(revenue) AS total_revenue FROM active_dataset GROUP BY 1 ORDER BY 1",
+                    "generated_pandas_code": "df.assign(date=pd.to_datetime(df['date'])).set_index('date').resample('ME')['revenue'].sum().reset_index()",
+                })
+
+            # 4. Underperforming products / bottom k intent
+            if "underperform" in prompt_lower or "worst" in prompt_lower or "lowest" in prompt_lower:
+                group_col = "product" if "product" in prompt_lower else "region"
+                return json.dumps({
+                    "user_intent": f"Identify lowest/underperforming {group_col}s by revenue",
+                    "reasoning": f"Finding underperforming {group_col} entities by aggregating revenue in ascending order.",
+                    "selected_tool": "top_k_analysis",
+                    "tool_parameters": {"group_col": group_col, "metric_col": "revenue", "k": 5, "ascending": True, "agg_func": "sum"},
+                    "generated_sql": f"SELECT {group_col}, SUM(revenue) AS total_revenue FROM active_dataset GROUP BY {group_col} ORDER BY total_revenue ASC LIMIT 5",
+                    "generated_pandas_code": f"df.groupby('{group_col}')['revenue'].sum().reset_index().sort_values(by='revenue', ascending=True).head(5)",
+                })
+
+            # 5. Top customers / regions / products
+            if "top" in prompt_lower or "highest" in prompt_lower or "most" in prompt_lower:
+                group_col = "region"
+                if "customer" in prompt_lower:
+                    group_col = "customer_name"
+                elif "product" in prompt_lower:
+                    group_col = "product"
+
+                metric = "profit" if "profit" in prompt_lower else "revenue"
+
+                return json.dumps({
+                    "user_intent": f"Find top entities by {metric} grouped by {group_col}",
+                    "reasoning": f"Selected top_k_analysis to rank {group_col} by sum of {metric} in descending order.",
+                    "selected_tool": "top_k_analysis",
+                    "tool_parameters": {"group_col": group_col, "metric_col": metric, "k": 5, "ascending": False, "agg_func": "sum"},
+                    "generated_sql": f"SELECT {group_col}, SUM({metric}) AS total_{metric} FROM active_dataset GROUP BY {group_col} ORDER BY total_{metric} DESC LIMIT 5",
+                    "generated_pandas_code": f"df.groupby('{group_col}')['{metric}'].sum().reset_index().sort_values(by='{metric}', ascending=False).head(5)",
+                })
+
+            # 6. SQL specific query request
+            if "sql" in prompt_lower:
+                sql_q = "SELECT region, SUM(revenue) AS total_revenue, SUM(profit) AS total_profit FROM active_dataset GROUP BY region ORDER BY total_revenue DESC"
+                return json.dumps({
+                    "user_intent": "Execute SQL query on the dataset",
+                    "reasoning": "Detected SQL request. Formulated aggregate SQL query for DuckDB execution.",
+                    "selected_tool": "execute_sql_query",
+                    "tool_parameters": {"query": sql_q},
+                    "generated_sql": sql_q,
+                    "generated_pandas_code": "df.groupby('region')[['revenue', 'profit']].sum().reset_index()",
+                })
+
+            # 7. Quality check / profile
+            if "quality" in prompt_lower or "missing" in prompt_lower or "clean" in prompt_lower:
+                return json.dumps({
+                    "user_intent": "Run dataset quality audit",
+                    "reasoning": "Selected check_data_quality tool to evaluate completeness and issues.",
+                    "selected_tool": "check_data_quality",
+                    "tool_parameters": {"table_name": "active_dataset"},
+                    "generated_sql": None,
+                    "generated_pandas_code": "check_data_quality(df)",
+                })
+
+            # Default fallback: general aggregation
+            return json.dumps({
+                "user_intent": "General dataset analysis and summary",
+                "reasoning": "Defaulting to top_k revenue analysis by region as default analytical entry point.",
+                "selected_tool": "top_k_analysis",
+                "tool_parameters": {"group_col": "region", "metric_col": "revenue", "k": 5, "ascending": False, "agg_func": "sum"},
+                "generated_sql": "SELECT region, SUM(revenue) AS total_revenue FROM active_dataset GROUP BY region ORDER BY total_revenue DESC",
+                "generated_pandas_code": "df.groupby('region')['revenue'].sum().reset_index().sort_values(by='revenue', ascending=False)",
+            })
+
+        # Non-JSON synthesis prompt response
+        return (
+            f"Based on the deterministic calculation from the dataset:\n"
+            f"- Analysis executed successfully.\n"
+            f"- All computations were derived deterministically using data analysis tools without LLM estimation.\n"
+            f"- Refer to the metrics and breakdown table below for verified figures."
+        )

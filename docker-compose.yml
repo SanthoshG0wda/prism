@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  ai-data-analyst:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-data-analyst-app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data:ro
+    restart: unless-stopped
