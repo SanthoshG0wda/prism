@@ -146,13 +146,16 @@ ai-data-analyst/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started with uv
+
+This project is managed with [uv](https://github.com/astral-sh/uv), the high-performance Python package manager.
 
 ### Prerequisites
-- Python 3.11 or Python 3.12
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Python 3.11+ (uv will automatically download Python 3.12 if not installed)
 - Docker (optional, for containerized run)
 
-### Local Setup
+### Local Setup with uv
 
 1. **Clone the repository:**
    ```bash
@@ -160,50 +163,42 @@ ai-data-analyst/
    cd ai-data-analyst
    ```
 
-2. **Create and activate virtual environment:**
+2. **Sync dependencies and create environment:**
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   uv sync
    ```
+   *This automatically creates `.venv`, installs all dependencies from `uv.lock`, and builds the project.*
 
-3. **Install dependencies:**
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment (optional):**
+3. **Configure environment (optional):**
    ```bash
    cp .env.example .env
    ```
    *Note: If no API key is specified, the application automatically uses its built-in deterministic heuristic orchestrator, allowing 100% of features to run offline.*
 
-5. **Run the application:**
+4. **Run the Streamlit application:**
    ```bash
-   streamlit run app.py
+   uv run streamlit run app.py
    ```
    Open your browser at `http://localhost:8501`.
 
 ---
 
+## 🧪 Running Tests with uv
+
+```bash
+uv run pytest tests/ -v
+```
+
+---
+
 ## 🐳 Docker Deployment
 
-Run the complete application inside a container:
+Run the complete application inside a container (built with `uv`):
 
 ```bash
 docker compose up --build
 ```
 The app will be available immediately at `http://localhost:8501`.
-
----
-
-## 🧪 Running Tests
-
-The test suite validates data profiling, SQL injection prevention, statistical calculations, anomaly detection, chart building, and end-to-end agent workflows:
-
-```bash
-pytest tests/ -v
-```
 
 ---
 
