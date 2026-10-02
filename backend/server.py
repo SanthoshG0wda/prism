@@ -142,10 +142,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
 @app.post("/api/chat", response_model=AgentResponse)
 def chat_with_agent(req: ChatRequest):
-    """Processes a natural language query through the 7-step DataAnalystAgent lifecycle."""
-    if not session_state.datasets:
-        raise HTTPException(status_code=400, detail="No datasets loaded. Please upload a CSV first.")
-
+    """Processes a natural language query through the DataAnalystAgent lifecycle."""
     settings = LLMSettings(
         LLM_PROVIDER=req.provider,
         LLM_API_KEY=req.api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY", ""),

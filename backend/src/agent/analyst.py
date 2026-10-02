@@ -8,7 +8,11 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 import pandas as pd
-from src.agent.prompts import SYSTEM_PLANNER_PROMPT, SYSTEM_SYNTHESIS_PROMPT
+from src.agent.prompts import (
+    SYSTEM_CONVERSATIONAL_PROMPT,
+    SYSTEM_PLANNER_PROMPT,
+    SYSTEM_SYNTHESIS_PROMPT,
+)
 from src.agent.state import SessionState
 from src.models.schemas import (
     AgentResponse,
@@ -57,36 +61,37 @@ class DataAnalystAgent:
         # Handle natural conversational greetings, capabilities, and polite remarks
         clean_q = user_question.strip().lower().rstrip("!?. ")
         greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening", "howdy", "sup", "yo"}
-        general_inquiries = {"who are you", "what can you do", "help", "what are you", "what are your capabilities", "introduce yourself"}
+        general_inquiries = {"who are you", "what can you do", "help", "what are you", "what are your capabilities", "introduce yourself", "special abilities", "what are your special abilities"}
 
         if clean_q in greetings or clean_q in general_inquiries:
             table_info = []
             for name, meta in self.state.metadata_cache.items():
                 is_act = " (Active)" if name == self.state.active_dataset_name else ""
                 table_info.append(f"- **`{name}`**{is_act}: {meta.row_count} rows, {meta.column_count} columns")
-            tables_str = "\n".join(table_info) if table_info else "- *No dataset currently uploaded. Attach a CSV to get started!*"
+            tables_str = "\n".join(table_info) if table_info else "- *No dataset currently uploaded. Attach a CSV anytime to unlock full data superpowers!*"
 
             welcome_msg = (
-                f"Hello! I am your **AI Data Analyst**, powered by a deterministic **DuckDB SQL engine** and **NVIDIA NIM (`muse-glimmer`)**.\n\n"
-                f"I analyze your tabular data with strict mathematical grounding—no invented numbers, full code transparency, and interactive visualizations.\n\n"
-                f"### 📂 Available Datasets:\n{tables_str}\n\n"
-                f"### 💡 Here is what you can ask me:\n"
-                f"1. **Executive Dashboard**: *\"Generate an Executive Dashboard artifact for {self.state.active_dataset_name or 'my dataset'}\"*\n"
-                f"2. **Outlier Audits**: *\"Detect anomalies in revenue and explain why they were flagged\"*\n"
-                f"3. **Rankings**: *\"What are the top 5 customers by revenue?\"* or *\"Which products are underperforming?\"*\n"
-                f"4. **Visual Trends**: *\"Show the monthly sales trend chart\"*\n"
-                f"5. **Predictive Projections**: *\"Forecast revenue for next 3 months with confidence intervals\"*\n"
-                f"6. **Safe SQL & Joins**: *\"Run a SQL join between sales_data and customers\"*\n\n"
-                f"You can attach your own CSV dataset anytime with the paperclip icon below, or ask any question to begin!"
+                f"Hello! I am your **AI Assistant & Data Analyst**, powered by **NVIDIA NIM (`muse-glimmer`)** and a deterministic **DuckDB SQL engine**.\n\n"
+                f"I operate as a normal, versatile conversational AI—ready to answer general questions, brainstorm ideas, write code, and explain statistical concepts. "
+                f"At the same time, I possess **special analytical superpowers** specified in the Digital Back Office AI assignment:\n\n"
+                f"### ⚡ Special Analytical Superpowers:\n"
+                f"1. **Zero Hallucination Analytics**: Real-time SQL aggregations via DuckDB on your uploaded CSVs.\n"
+                f"2. **Interactive Executive Dashboards**: Claude-style artifacts generated on user request with KPIs and quality breakdowns.\n"
+                f"3. **Statistical Anomaly Audits**: Flag outliers using Tukey IQR fences ($1.5 \\times \\text{{IQR}}$) or Z-score ($|Z| > 3.0$) with transparent rationale.\n"
+                f"4. **Predictive Forecasting**: Project metrics 3 months forward with 95% confidence intervals.\n"
+                f"5. **Interactive Visualizations**: Dynamic Plotly charts (Bar, Line, Pie, Scatter, Histogram, Box).\n"
+                f"6. **Code Explainability**: Complete visibility into generated SQL and Pandas code.\n\n"
+                f"### 📂 Session Datasets:\n{tables_str}\n\n"
+                f"Feel free to ask me anything—from general questions to deep data audits!"
             )
             total_elapsed = (time.perf_counter() - start_time) * 1000.0
             resp = AgentResponse(
                 question=user_question,
                 answer=welcome_msg,
                 steps_explanation=[
-                    f"1. Recognized conversational greeting '{user_question}'.",
+                    f"1. Recognized greeting / capabilities inquiry '{user_question}'.",
                     f"2. Inspected active session datasets ({len(self.state.datasets)} tables loaded).",
-                    "3. Synthesized analyst welcome overview and guided recommendations.",
+                    "3. Presented conversational profile and specialized analytical capabilities.",
                 ],
                 tool_used="conversational_greeting",
                 execution_time_ms=total_elapsed,
@@ -96,7 +101,7 @@ class DataAnalystAgent:
             return resp
 
         if clean_q in {"thank you", "thanks", "thx", "appreciate it", "great", "awesome", "perfect"}:
-            thank_msg = "You're very welcome! Let me know if you need any more data analysis, charts, or anomaly checks."
+            thank_msg = "You're very welcome! Feel free to ask any other questions or request further analysis, charts, or dashboard artifacts."
             total_elapsed = (time.perf_counter() - start_time) * 1000.0
             resp = AgentResponse(
                 question=user_question,
@@ -112,13 +117,73 @@ class DataAnalystAgent:
             self.state.add_message(role="assistant", content=thank_msg, metadata={"tool_used": "conversational_ack"})
             return resp
 
-        # Step 1 & 2: Dataset schema inspection
+        # Check if the query is a general conversational/conceptual query vs a dataset query
+        if not self._is_dataset_query(user_question):
+            steps = [
+                f"1. Evaluated query intent: General conversation, reasoning, code, or conceptual explanation.",
+                f"2. Synthesizing articulate response using versatile AI Assistant intelligence.",
+            ]
+
+            # Provide dataset schema awareness so conversational questions about the environment are informed
+            dataset_summary = []
+            if self.state.datasets:
+                dataset_summary.append("Datasets currently available in user session:")
+                for name, meta in self.state.metadata_cache.items():
+                    col_names = ", ".join([c.name for c in meta.columns[:6]])
+                    dataset_summary.append(f"- {name} ({meta.row_count} rows, {meta.column_count} columns: {col_names}...)")
+            session_context = "\n".join(dataset_summary) if dataset_summary else "No datasets currently uploaded in session."
+
+            recent_history = [
+                f"{m.role}: {m.content}"
+                for m in self.state.conversation_history[-4:]
+            ]
+            history_context = "\n".join(recent_history) if recent_history else "No previous conversation."
+
+            conversational_prompt = (
+                f"SESSION CONTEXT:\n{session_context}\n\n"
+                f"CONVERSATION HISTORY:\n{history_context}\n\n"
+                f"USER MESSAGE: {user_question}\n\n"
+                f"Provide a comprehensive, articulate, and well-structured response using markdown formatting."
+            )
+
+            try:
+                answer = self.llm.generate(
+                    prompt=conversational_prompt,
+                    system_prompt=SYSTEM_CONVERSATIONAL_PROMPT,
+                )
+            except Exception as exc:
+                logger.warning(f"Conversational generation failed: {exc}")
+                answer = (
+                    f"I understand your question: **{user_question}**.\n\n"
+                    f"As your AI Assistant with specialized data superpowers, I am ready to answer general questions, "
+                    f"write code, explain mathematical and business concepts, or run deterministic queries on your datasets."
+                )
+
+            total_elapsed = (time.perf_counter() - start_time) * 1000.0
+            response = AgentResponse(
+                question=user_question,
+                answer=answer,
+                steps_explanation=steps,
+                tool_used="conversational_agent",
+                execution_time_ms=total_elapsed,
+            )
+            self.state.add_message(role="user", content=user_question)
+            self.state.add_message(role="assistant", content=answer, metadata={"tool_used": "conversational_agent"})
+            return response
+
+        # Dataset Query Flow: Ensure a dataset is loaded
         active_df = self.state.get_active_df()
         if active_df is None:
+            no_data_msg = (
+                "I would love to perform that analysis for you! However, there is no dataset currently loaded in the session.\n\n"
+                "Please upload a CSV file using the paperclip button below, and I will immediately execute this analysis with "
+                "full mathematical grounding, DuckDB SQL queries, and interactive visualizations."
+            )
             return AgentResponse(
                 question=user_question,
-                answer="No dataset is currently uploaded. Please upload a CSV file to begin analysis.",
-                steps_explanation=["Inspected session state: No datasets loaded."],
+                answer=no_data_msg,
+                steps_explanation=["Inspected session state: No datasets loaded for analytical query."],
+                tool_used="dataset_required_notice",
                 execution_time_ms=(time.perf_counter() - start_time) * 1000.0,
             )
 
@@ -363,4 +428,73 @@ class DataAnalystAgent:
             "quality_report": quality_report.model_dump(),
             "charts": charts,
         }
+
+    def _is_dataset_query(self, question: str) -> bool:
+        """
+        Determines whether the user question requires executing deterministic data tools
+        against loaded tables vs. general conversation, reasoning, code generation, or concepts.
+        """
+        q = question.lower().strip()
+
+        # 1. If user explicitly asks to generate an artifact or dashboard
+        if any(w in q for w in ["dashboard", "executive overview", "create dashboard", "generate dashboard", "show dashboard", "build dashboard"]):
+            return True
+
+        # 2. Check for explicit table mentions
+        table_names = [t.lower() for t in self.state.datasets.keys()]
+        mentions_table = any(t in q for t in table_names)
+
+        # 3. Explicit dataset anchors (referencing loaded tabular data)
+        dataset_anchors = ["in our data", "in this dataset", "in the dataset", "in the table", "in my data", "in the csv", "from the data", "active dataset", "sales_data", "customers"]
+        has_dataset_anchor = any(a in q for a in dataset_anchors)
+
+        # 4. Conceptual / Educational / Coding inquiries that should be handled conversationally
+        conceptual_starts = (
+            "what is ", "what are ", "how does ", "how do ", "how can ", "explain ", "describe ",
+            "can you explain ", "tell me about ", "write a ", "write code ", "give an example of ",
+            "define ", "difference between ", "why is ", "why does ", "who is ", "who are ",
+            "can you help ", "brainstorm ", "suggest "
+        )
+
+        if any(q.startswith(prefix) for prefix in conceptual_starts):
+            # Aggregation inquiries disguised as questions (e.g., "What are the top 5 customers?")
+            is_aggregation_inquiry = any(trigger in q for trigger in [
+                "top ", "highest", "lowest", "bottom ", "total revenue", "total profit", "underperforming", "best performing"
+            ])
+            if not is_aggregation_inquiry and not mentions_table and not has_dataset_anchor:
+                # E.g. "What is DuckDB?", "Explain linear regression", "How does outlier detection work?", "Write a python function"
+                return False
+
+        if mentions_table or has_dataset_anchor:
+            return True
+
+        # 5. Specific data tool triggers for analytical operations
+        data_triggers = [
+            "top ", "highest", "lowest", "bottom ", "most ", "least ",
+            "underperforming", "best performing", "revenue by", "sales by", "profit by",
+            "monthly sales", "sales trend", "forecast revenue", "forecast sales", "predict revenue",
+            "detect anomalies", "find outliers", "sql query", "run sql", "execute sql", "generate sql", "select ",
+            "data quality", "missing values in", "duplicate rows in", "plot a", "draw a",
+            "chart of", "histogram of", "scatter plot of", "bar chart of", "line chart of",
+            "correlation between", "average revenue", "total revenue", "total profit", "sum of"
+        ]
+
+        if any(trigger in q for trigger in data_triggers):
+            return True
+
+        if "sql" in q and any(w in q for w in ["query", "generate", "write", "run", "execute"]):
+            return True
+
+        # 6. Column name matching if active tables exist
+        all_cols = []
+        for meta in self.state.metadata_cache.values():
+            for c in meta.columns:
+                all_cols.append(c.name.lower())
+
+        column_hits = [c for c in all_cols if len(c) > 3 and c in q]
+        if len(column_hits) >= 2 or (column_hits and any(w in q for w in ["calculate", "show", "what is the total", "how much", "which", "aggregate"])):
+            return True
+
+        return False
+
 

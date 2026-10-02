@@ -53,3 +53,47 @@ def test_agent_sql_query(agent_with_data):
     assert response.tool_used == "execute_sql_query"
     assert response.generated_sql is not None
     assert "SELECT" in response.generated_sql
+
+
+def test_agent_conversational_concept_query(agent_with_data):
+    response = agent_with_data.run("What is DuckDB?")
+    assert response.tool_used == "conversational_agent"
+    assert "DuckDB" in response.answer
+    assert response.tool_result is None
+
+
+def test_agent_special_abilities_query(agent_with_data):
+    response = agent_with_data.run("What are your special abilities?")
+    assert response.tool_used == "conversational_greeting"
+    assert "Special Analytical Superpowers" in response.answer
+
+
+def test_agent_conversational_when_no_data():
+    empty_state = SessionState()
+    settings = LLMSettings(LLM_PROVIDER="mock")
+    llm = LLMService(settings)
+    agent = DataAnalystAgent(session_state=empty_state, llm_service=llm)
+
+    response = agent.run("Explain how Tukey IQR anomaly detection works")
+    assert response.tool_used == "conversational_agent"
+    assert "Tukey" in response.answer or "IQR" in response.answer
+
+
+def test_agent_dataset_required_notice_when_no_data():
+    empty_state = SessionState()
+    settings = LLMSettings(LLM_PROVIDER="mock")
+    llm = LLMService(settings)
+    agent = DataAnalystAgent(session_state=empty_state, llm_service=llm)
+
+    response = agent.run("What are the top 5 customers by revenue?")
+    assert response.tool_used == "dataset_required_notice"
+    assert "upload a CSV" in response.answer
+
+
+def test_agent_dashboard_artifact(agent_with_data):
+    response = agent_with_data.run("Generate an Executive Dashboard for sales")
+    assert response.tool_used == "generate_dashboard_artifact"
+    assert response.artifact is not None
+    assert response.artifact["type"] == "dashboard"
+    assert "kpis" in response.artifact["data"]
+
