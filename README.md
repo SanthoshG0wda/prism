@@ -146,40 +146,52 @@ ai-data-analyst/
 
 ---
 
-## 🚀 Getting Started with uv
+## 🚀 Getting Started with React & uv
 
-This project is managed with [uv](https://github.com/astral-sh/uv), the high-performance Python package manager.
+The application features a modern **React.js SPA** frontend paired with a high-performance **FastAPI & DuckDB** analytical backend.
 
 ### Prerequisites
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Python 3.11+ (uv will automatically download Python 3.12 if not installed)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed
+- Node.js 18+ & npm
 - Docker (optional, for containerized run)
 
-### Local Setup with uv
+### Running the Application
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repo-url>
-   cd ai-data-analyst
-   ```
-
-2. **Sync dependencies and create environment:**
+1. **Install Python backend dependencies:**
    ```bash
    uv sync
    ```
-   *This automatically creates `.venv`, installs all dependencies from `uv.lock`, and builds the project.*
 
-3. **Configure environment (optional):**
+2. **Install React frontend dependencies & build:**
    ```bash
-   cp .env.example .env
+   cd frontend
+   npm install
+   npm run build
+   cd ..
    ```
-   *Note: If no API key is specified, the application automatically uses its built-in deterministic heuristic orchestrator, allowing 100% of features to run offline.*
 
-4. **Run the Streamlit application:**
+3. **Launch the Unified Application:**
    ```bash
-   uv run streamlit run app.py
+   uv run python run.py
    ```
-   Open your browser at `http://localhost:8501`.
+   Open **`http://localhost:8000`** in your browser!
+
+---
+
+### Development Mode (Hot Reloading)
+
+If you are developing and want instant hot module reloading:
+
+- **Terminal 1 (FastAPI Backend):**
+  ```bash
+  uv run uvicorn server:app --port 8000 --reload
+  ```
+- **Terminal 2 (React Vite Frontend):**
+  ```bash
+  cd frontend
+  npm run dev
+  ```
+  Open **`http://localhost:5173`** (API requests are automatically proxied to port 8000).
 
 ---
 
@@ -193,12 +205,12 @@ uv run pytest tests/ -v
 
 ## 🐳 Docker Deployment
 
-Run the complete application inside a container (built with `uv`):
+Run the complete multi-stage container (compiles React + serves FastAPI):
 
 ```bash
 docker compose up --build
 ```
-The app will be available immediately at `http://localhost:8501`.
+The app will be available immediately at **`http://localhost:8000`**.
 
 ---
 
