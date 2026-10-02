@@ -3,15 +3,9 @@ import {
   MessageSquare,
   SquarePen,
   PanelLeftClose,
-  Upload,
-  Database,
   Trash2,
-  FileSpreadsheet,
   Settings,
-  ChevronDown,
-  ChevronRight,
   Sparkles,
-  ExternalLink,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -22,44 +16,9 @@ export default function Sidebar({
   onSelectChat,
   onNewChat,
   onDeleteChat,
-  catalog,
-  activeDataset,
-  onSelectDataset,
-  onUploadSuccess,
-  onLoadSamples,
   onOpenSettings,
-  model,
 }) {
-  const [showDatasets, setShowDatasets] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState(null);
-
-  const handleFileUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setUploading(true);
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
-    }
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (res.ok) {
-        onUploadSuccess();
-      } else {
-        alert('Upload failed: ' + (await res.text()));
-      }
-    } catch (err) {
-      alert('Error uploading file: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
 
   // Group chats by date: Today, Yesterday, Previous 7 Days, Older
   const groupChats = () => {
@@ -277,131 +236,6 @@ export default function Sidebar({
         {chats.length === 0 && (
           <div style={{ padding: '16px 10px', color: '#737373', fontSize: '0.82rem', textAlign: 'center' }}>
             No recent conversations yet.
-          </div>
-        )}
-      </div>
-
-      {/* Data Catalog & CSVs Section */}
-      <div style={{
-        borderTop: '1px solid var(--border-subtle)',
-        paddingTop: '12px',
-        marginBottom: '10px',
-      }}>
-        <div
-          onClick={() => setShowDatasets(!showDatasets)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '6px 8px',
-            cursor: 'pointer',
-            fontSize: '0.78rem',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Database size={14} />
-            <span>Data Catalog ({catalog?.tables?.length || 0})</span>
-          </div>
-          {showDatasets ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </div>
-
-        {showDatasets && (
-          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {/* Table pills */}
-            {catalog?.tables?.map((table) => {
-              const isActive = table.name === activeDataset;
-              return (
-                <div
-                  key={table.name}
-                  onClick={() => onSelectDataset(table.name)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    backgroundColor: isActive ? '#212121' : 'transparent',
-                    border: isActive ? '1px solid #10a37f' : '1px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: '0.82rem',
-                    color: isActive ? '#ececec' : '#b4b4b4',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-sidebar-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    <FileSpreadsheet size={14} color={isActive ? '#10a37f' : '#737373'} />
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {table.name}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.7rem', color: '#737373' }}>
-                    {table.row_count}r
-                  </span>
-                </div>
-              );
-            })}
-
-            {/* Quick Upload Button */}
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '7px 10px',
-                borderRadius: '8px',
-                border: '1px dashed #383838',
-                backgroundColor: 'transparent',
-                color: '#b4b4b4',
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                marginTop: '4px',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--bg-sidebar-hover)';
-                e.currentTarget.style.color = '#ececec';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#b4b4b4';
-              }}
-            >
-              <Upload size={13} />
-              <span>{uploading ? 'Uploading...' : 'Upload CSV'}</span>
-              <input type="file" accept=".csv" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
-            </label>
-
-            {/* Load Default Sample Data */}
-            <button
-              onClick={onLoadSamples}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: '#737373',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ececec')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#737373')}
-            >
-              <Database size={13} />
-              <span>Reset Sample Datasets</span>
-            </button>
           </div>
         )}
       </div>

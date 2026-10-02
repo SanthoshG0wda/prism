@@ -298,13 +298,7 @@ export default function App() {
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
-        catalog={catalog}
-        activeDataset={catalog.active_dataset}
-        onSelectDataset={handleSelectDataset}
-        onUploadSuccess={fetchCatalog}
-        onLoadSamples={handleLoadSamples}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        model={model}
       />
 
       {/* Main Canvas Area */}
