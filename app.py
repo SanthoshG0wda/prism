@@ -28,20 +28,29 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS styling for authentic Gemini / ChatGPT look & feel
+# Custom CSS styling strictly mirroring Google Gemini & ChatGPT
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Global Theme */
-    html, body, [class*="st-"] {
-        font-family: 'Google Sans', 'Inter', -apple-system, sans-serif;
+    /* Global Dark Canvas */
+    .stApp {
+        background-color: #131314 !important;
+        color: #e3e3e3 !important;
     }
 
-    .stApp {
-        background-color: #131314;
-        color: #e3e3e3;
+    /* Target text typography without overriding Streamlit's icon ligature fonts */
+    .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stMarkdown, .stText {
+        font-family: 'Google Sans', 'Inter', -apple-system, sans-serif !important;
+    }
+
+    /* Centered Reading Container like ChatGPT / Gemini */
+    .main .block-container {
+        max-width: 900px !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 6rem !important;
+        margin: 0 auto !important;
     }
 
     /* Top Bar & Header */
@@ -52,65 +61,79 @@ st.markdown(
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #1e1f20 !important;
-        border-right: 1px solid #2d2f31 !important;
-    }
-    section[data-testid="stSidebar"] hr {
-        border-color: #2d2f31 !important;
+        border-right: 1px solid #282a2c !important;
     }
 
-    /* Gemini Model Badge */
-    .model-badge {
+    /* Gemini Top Header Badge */
+    .gemini-top-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #212224;
+    }
+    .gemini-logo-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+        background: linear-gradient(90deg, #8ab4f8, #c58af9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .gemini-model-pill {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         background: #1e1f20;
         border: 1px solid #3c4043;
         color: #c4c7c5;
-        padding: 5px 14px;
-        border-radius: 20px;
-        font-size: 0.85rem;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.8rem;
         font-weight: 500;
-        margin-bottom: 12px;
     }
 
     /* Gemini Hero Greeting */
+    .gemini-hero-container {
+        padding: 20px 0 30px 0;
+        text-align: left;
+    }
     .gemini-hero-title {
-        font-size: 2.8rem;
+        font-size: 2.9rem;
         font-weight: 600;
-        background: linear-gradient(74deg, #4285f4 0%, #9b72cb 15%, #d96570 30%, #d96570 40%, #9b72cb 60%, #4285f4 85%);
+        background: linear-gradient(74deg, #4285f4 0%, #9b72cb 18%, #d96570 35%, #d96570 45%, #9b72cb 65%, #4285f4 90%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        line-height: 1.25;
-        margin-top: 15px;
-        margin-bottom: 6px;
+        line-height: 1.2;
+        margin-bottom: 8px;
     }
     .gemini-hero-subtitle {
-        font-size: 1.6rem;
-        font-weight: 500;
-        color: #5f6368;
+        font-size: 1.45rem;
+        font-weight: 400;
+        color: #70757a;
         margin-bottom: 28px;
     }
 
-    /* Starter Prompt Cards */
-    .starter-card-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-        margin-bottom: 25px;
-    }
+    /* Prompt Starter Buttons */
     div[data-testid="stButton"] > button {
-        border-radius: 12px !important;
-        border: 1px solid #3c4043 !important;
+        border-radius: 14px !important;
+        border: 1px solid #313335 !important;
         background-color: #1e1f20 !important;
         color: #e3e3e3 !important;
+        padding: 14px 16px !important;
+        text-align: left !important;
+        height: auto !important;
+        min-height: 80px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        font-weight: 500 !important;
     }
     div[data-testid="stButton"] > button:hover {
         background-color: #282a2c !important;
-        border-color: #8ab4f8 !important;
+        border-color: #5f6368 !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
     }
 
     /* Chat Messages Styling */
@@ -120,45 +143,44 @@ st.markdown(
         padding: 12px 0 !important;
     }
 
-    /* Chat Input Bar (Gemini / ChatGPT pill) */
+    /* Floating Capsule Chat Input Bar */
     div[data-testid="stChatInput"] {
         border-radius: 28px !important;
         border: 1px solid #3c4043 !important;
         background-color: #1e1f20 !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
-        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
         padding: 4px 8px !important;
     }
     div[data-testid="stChatInput"]:focus-within {
         border-color: #8ab4f8 !important;
-        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.25) !important;
+        box-shadow: 0 4px 24px rgba(66, 133, 244, 0.25) !important;
     }
     div[data-testid="stChatInput"] textarea {
         color: #f1f3f4 !important;
         font-size: 0.95rem !important;
     }
 
-    /* Expander / Thought Process */
+    /* Gemini Thinking Accordion */
     div[data-testid="stExpander"] {
-        background-color: #1b1c1d !important;
-        border: 1px solid #2d2f31 !important;
+        background-color: #1a1a1c !important;
+        border: 1px solid #282a2c !important;
         border-radius: 12px !important;
         margin-bottom: 12px !important;
     }
     div[data-testid="stExpander"] summary {
         color: #9aa0a6 !important;
         font-weight: 500 !important;
-        font-size: 0.88rem !important;
+        font-size: 0.85rem !important;
     }
 
     /* Tabs Styling */
     div[data-testid="stTabs"] button[role="tab"] {
         color: #9aa0a6 !important;
-        font-size: 0.95rem !important;
+        font-size: 0.92rem !important;
         font-weight: 500 !important;
-        padding: 8px 18px !important;
-        border-radius: 20px !important;
-        margin-right: 8px !important;
+        padding: 6px 16px !important;
+        border-radius: 18px !important;
+        margin-right: 6px !important;
     }
     div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
         color: #8ab4f8 !important;
@@ -166,16 +188,16 @@ st.markdown(
         border: 1px solid #3c4043 !important;
     }
 
-    /* Metric Cards */
+    /* Metric Cards in Dashboard */
     div[data-testid="stMetric"] {
         background-color: #1e1f20 !important;
-        border: 1px solid #2d2f31 !important;
-        border-radius: 14px !important;
-        padding: 14px 18px !important;
+        border: 1px solid #282a2c !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
     }
     div[data-testid="stMetricLabel"] {
         color: #9aa0a6 !important;
-        font-size: 0.85rem !important;
+        font-size: 0.82rem !important;
     }
     div[data-testid="stMetricValue"] {
         color: #8ab4f8 !important;
@@ -187,10 +209,26 @@ st.markdown(
 )
 
 
+def auto_load_samples_if_empty(state: SessionState) -> None:
+    """Pre-populates the sample sales and customers datasets on initial launch so the UI is immediately interactive."""
+    if not state.datasets:
+        sample_sales = "data/samples/sales_data.csv"
+        sample_cust = "data/samples/customers.csv"
+        if os.path.exists(sample_sales):
+            df_sales = pd.read_csv(sample_sales)
+            state.register_dataset("sales_data", df_sales)
+        if os.path.exists(sample_cust):
+            df_cust = pd.read_csv(sample_cust)
+            state.register_dataset("customers", df_cust)
+        logger.info("Auto-loaded default sample datasets ('sales_data' & 'customers').")
+
+
 def get_session_state() -> SessionState:
     """Initializes and persists SessionState in Streamlit session."""
     if "data_state" not in st.session_state:
-        st.session_state.data_state = SessionState()
+        state = SessionState()
+        auto_load_samples_if_empty(state)
+        st.session_state.data_state = state
     return st.session_state.data_state
 
 
@@ -217,12 +255,12 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
     with st.sidebar:
         st.markdown("### ✨ Digital Back Office")
         st.markdown(
-            '<div class="model-badge">⚡ Powered by NVIDIA NIM</div>',
+            '<div class="gemini-model-pill">⚡ NVIDIA NIM • Llama 3.3 70B</div>',
             unsafe_allow_html=True,
         )
 
         # Configuration Section
-        with st.expander("⚙️ AI Provider & Model", expanded=False):
+        with st.expander("⚙️ Provider & Model", expanded=False):
             provider_choice = st.selectbox(
                 "Provider",
                 ["NVIDIA NIM", "OpenAI / Compatible", "Local (Ollama)"],
@@ -267,26 +305,13 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
             model_name = st.selectbox("Model", model_options, index=0)
 
         st.markdown("---")
-        st.subheader("📂 Datasets")
+        st.subheader("📂 Upload CSV")
         uploaded_files = st.file_uploader(
             "Upload CSV files",
             type=["csv"],
             accept_multiple_files=True,
             help="Files will be indexed as SQL tables in DuckDB.",
         )
-
-        # Load samples button
-        if st.button("📥 Load Sample Datasets", use_container_width=True):
-            sample_sales = "data/samples/sales_data.csv"
-            sample_cust = "data/samples/customers.csv"
-            if os.path.exists(sample_sales):
-                df_sales = pd.read_csv(sample_sales)
-                state.register_dataset("sales_data", df_sales)
-            if os.path.exists(sample_cust):
-                df_cust = pd.read_csv(sample_cust)
-                state.register_dataset("customers", df_cust)
-            st.success("Loaded 'sales_data' & 'customers'!")
-            st.rerun()
 
         # Process uploaded files
         if uploaded_files:
@@ -323,7 +348,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
             if meta:
                 st.caption(f"📊 **Rows:** {meta.row_count:,} | **Cols:** {meta.column_count}")
 
-                with st.expander("📋 Schema Details", expanded=False):
+                with st.expander("📋 View Schema", expanded=False):
                     schema_df = pd.DataFrame([
                         {
                             "Column": c.name,
@@ -333,7 +358,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
                         }
                         for c in meta.columns
                     ])
-                    st.dataframe(schema_df, hide_index=True, use_container_width=True)
+                    st.dataframe(schema_df, hide_index=True)
 
             # Export Report Button
             st.markdown("---")
@@ -343,14 +368,11 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
                 data=report_html,
                 file_name=f"analyst_report_{chosen_dataset}.html",
                 mime="text/html",
-                use_container_width=True,
             )
-        else:
-            st.info("No datasets loaded yet.")
 
         # Quick reset
         st.markdown("---")
-        if st.button("🧹 Clear Chat", use_container_width=True):
+        if st.button("🧹 Clear Chat History"):
             state.clear_history()
             st.rerun()
 
@@ -372,7 +394,7 @@ def render_response(resp: AgentResponse) -> None:
 
     # 3. Interactive Plotly Visualization
     if resp.chart_spec:
-        st.plotly_chart(resp.chart_spec, use_container_width=True)
+        st.plotly_chart(resp.chart_spec)
 
     # 4. Anomaly Table
     if resp.anomalies:
@@ -388,14 +410,14 @@ def render_response(resp: AgentResponse) -> None:
             }
             for a in resp.anomalies
         ]
-        st.dataframe(pd.DataFrame(anom_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(anom_rows), hide_index=True)
 
     # 5. Tabular Data Result
     if isinstance(resp.tool_result, dict) and "records" in resp.tool_result:
         records = resp.tool_result["records"]
         if records:
             with st.expander("📑 View Tabular Data", expanded=False):
-                st.dataframe(pd.DataFrame(records), use_container_width=True)
+                st.dataframe(pd.DataFrame(records))
 
     # 6. Generated SQL & Pandas Code Drawers
     if resp.generated_sql or resp.generated_pandas_code:
@@ -452,7 +474,7 @@ def render_dashboard_tab(state: SessionState) -> None:
                 color="region",
                 template="plotly_dark",
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar)
         elif len(numeric_cols) >= 1:
             fig_hist = px.histogram(
                 active_df,
@@ -460,7 +482,7 @@ def render_dashboard_tab(state: SessionState) -> None:
                 title=f"Distribution of {numeric_cols[0]}",
                 template="plotly_dark",
             )
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist)
 
     with c2:
         if "product" in active_df.columns and "revenue" in active_df.columns:
@@ -473,7 +495,7 @@ def render_dashboard_tab(state: SessionState) -> None:
                 template="plotly_dark",
                 hole=0.4,
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie)
         elif len(numeric_cols) >= 2:
             fig_scat = px.scatter(
                 active_df,
@@ -482,7 +504,7 @@ def render_dashboard_tab(state: SessionState) -> None:
                 title=f"{numeric_cols[0]} vs {numeric_cols[1]}",
                 template="plotly_dark",
             )
-            st.plotly_chart(fig_scat, use_container_width=True)
+            st.plotly_chart(fig_scat)
 
     st.subheader("🛡️ Data Quality & Hygiene")
     qcol1, qcol2 = st.columns([1, 2])
@@ -508,19 +530,16 @@ def main() -> None:
         base_url=base_url,
     )
 
-    # Empty State - prompt upload
-    if not state.datasets:
-        st.markdown('<div class="gemini-hero-title">Hello, Analyst</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="gemini-hero-subtitle">Upload your CSV datasets or load samples from the sidebar to begin.</div>',
-            unsafe_allow_html=True,
-        )
-        col1, col2 = st.columns(2)
-        with col1:
-            st.info("💡 **Getting Started:** Click **'📥 Load Sample Datasets'** in the sidebar for ready-to-test Sales & Customer tables.")
-        with col2:
-            st.info("⚡ **AI Orchestration:** Running on **NVIDIA NIM** (`meta/llama-3.3-70b-instruct`) with zero numerical hallucination.")
-        return
+    # Top Gemini Header
+    st.markdown(
+        f"""
+        <div class="gemini-top-header">
+            <div class="gemini-logo-text">✨ AI Data Analyst</div>
+            <div class="gemini-model-pill">🟢 NVIDIA NIM • {model_name.split('/')[-1]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Two Main View Tabs
     tab_chat, tab_dashboard = st.tabs(["💬 Chat", "📊 Executive Dashboard"])
@@ -529,28 +548,29 @@ def main() -> None:
         render_dashboard_tab(state)
 
     with tab_chat:
-        # Gemini / ChatGPT Hero Greeting & Suggestion Cards when conversation is fresh
         starter_choice = None
+
+        # Gemini / ChatGPT Hero Greeting & Suggestion Cards when conversation is fresh
         if not state.conversation_history:
             st.markdown(
-                '<div class="gemini-hero-title">Hello, Analyst</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f'<div class="gemini-hero-subtitle">How can I help you explore <code>{state.active_dataset_name}</code> today?</div>',
+                '<div class="gemini-hero-container">'
+                '<div class="gemini-hero-title">Hello, Analyst</div>'
+                f'<div class="gemini-hero-subtitle">How can I help you explore <strong>{state.active_dataset_name}</strong> today?</div>'
+                '</div>',
                 unsafe_allow_html=True,
             )
 
             # 4 Prompt Starter Cards in Grid
             c1, c2 = st.columns(2)
             c3, c4 = st.columns(2)
-            if c1.button("🏆 Top 5 Customers by Revenue\n\nRank top accounts by total revenue", use_container_width=True):
+
+            if c1.button("🏆 Top 5 Customers by Revenue\n\nRank top accounts by total revenue"):
                 starter_choice = "What are the top 5 customers by revenue?"
-            if c2.button("📈 Monthly Sales Trend\n\nResample and plot monthly trendline", use_container_width=True):
+            if c2.button("📈 Monthly Sales Trend\n\nResample and plot monthly trendline"):
                 starter_choice = "Show the monthly sales trend chart."
-            if c3.button("🚨 Detect Statistical Outliers\n\nScan revenue anomalies using Tukey's fences", use_container_width=True):
+            if c3.button("🚨 Detect Statistical Outliers\n\nScan revenue anomalies using Tukey's fences"):
                 starter_choice = "Detect anomalies in revenue and explain why they were flagged."
-            if c4.button("🔮 3-Month Predictive Forecast\n\nProject future sales with 95% confidence intervals", use_container_width=True):
+            if c4.button("🔮 3-Month Predictive Forecast\n\nProject future sales with 95% confidence intervals"):
                 starter_choice = "Forecast revenue for next 3 months with confidence intervals."
 
         # Chat History
@@ -564,11 +584,9 @@ def main() -> None:
         query_to_run = starter_choice or user_prompt
 
         if query_to_run:
-            # Display user message
             with st.chat_message("user", avatar="👤"):
                 st.markdown(query_to_run)
 
-            # Execute Agent Workflow
             with st.chat_message("assistant", avatar="✨"):
                 with st.spinner("Analyzing with deterministic tools..."):
                     response = agent.run(query_to_run)
