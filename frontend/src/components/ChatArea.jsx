@@ -22,6 +22,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import ChartRenderer from './ChartRenderer';
+import MarkdownRenderer from './MarkdownRenderer';
 
 export default function ChatArea({
   sidebarOpen,
@@ -472,8 +473,10 @@ export default function ChatArea({
                   </div>
 
                   <div style={{ flexGrow: 1, minWidth: 0 }}>
-                    {/* ChatGPT o1/o3-style Thinking Accordion */}
-                    {msg.steps_explanation && msg.steps_explanation.length > 0 && (
+                    {/* ChatGPT o1/o3-style Thinking Accordion (shown for analytical queries) */}
+                    {msg.steps_explanation &&
+                      msg.steps_explanation.length > 0 &&
+                      !msg.tool_used?.startsWith('conversational_') && (
                       <div style={{ marginBottom: '12px' }}>
                         <div
                           onClick={() => toggleThinking(idx)}
@@ -493,7 +496,7 @@ export default function ChatArea({
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#262626')}
                         >
                           <Sparkles size={13} color="#10a37f" />
-                          <span>Thought for {msg.execution_time_ms ? (msg.execution_time_ms / 1000).toFixed(1) : '1.2'} seconds</span>
+                          <span>Thought for {Math.max(0.4, (msg.execution_time_ms ? msg.execution_time_ms / 1000 : 1.2)).toFixed(1)} seconds</span>
                           {openThinking[idx] ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                         </div>
 
@@ -522,15 +525,14 @@ export default function ChatArea({
                       </div>
                     )}
 
-                    {/* Main Assistant Text */}
+                    {/* Main Assistant Text rendered as Rich Markdown */}
                     <div style={{
                       fontSize: '0.96rem',
                       lineHeight: 1.7,
                       color: '#ececec',
-                      whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                     }}>
-                      {msg.content}
+                      <MarkdownRenderer content={msg.content} />
                     </div>
 
                     {/* Claude-style Artifact Card (When Dashboard artifact is generated) */}

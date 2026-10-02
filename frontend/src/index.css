@@ -110,3 +110,75 @@ pre, code {
 .pulse-thinking {
   animation: subtle-pulse 1.8s infinite ease-in-out;
 }
+
+/* Markdown Content Styling */
+.markdown-content {
+  font-size: 0.96rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.markdown-content p {
+  margin-bottom: 12px;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-weight: 600;
+  color: #f5f5f5;
+  margin-top: 18px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.markdown-content h3 {
+  font-size: 1.05rem;
+  color: #fff;
+  border-bottom: 1px solid #2d2d2d;
+  padding-bottom: 4px;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.markdown-content li {
+  margin-bottom: 5px;
+  line-height: 1.6;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.markdown-content em {
+  font-style: italic;
+  color: #d1d5db;
+}
+
+.markdown-content code {
+  background-color: #2b2b2b;
+  color: #10a37f;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.85em;
+  border: 1px solid #383838;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
