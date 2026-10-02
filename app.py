@@ -236,7 +236,7 @@ def get_agent(
     state: SessionState,
     provider: str = "nvidia",
     api_key: str = "",
-    model_name: str = "meta/llama-3.3-70b-instruct",
+    model_name: str = "muse-glimmer",
     base_url: str = "https://integrate.api.nvidia.com/v1",
 ) -> DataAnalystAgent:
     """Instantiates the agent with updated settings."""
@@ -255,7 +255,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
     with st.sidebar:
         st.markdown("### ✨ Digital Back Office")
         st.markdown(
-            '<div class="gemini-model-pill">⚡ NVIDIA NIM • Llama 3.3 70B</div>',
+            '<div class="gemini-model-pill">⚡ Muse Glimmer (Agentic 30B)</div>',
             unsafe_allow_html=True,
         )
 
@@ -271,6 +271,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
                 provider_key = "nvidia"
                 base_url = "https://integrate.api.nvidia.com/v1"
                 model_options = [
+                    "muse-glimmer",
                     "meta/llama-3.3-70b-instruct",
                     "nvidia/llama-3.1-nemotron-70b-instruct",
                     "meta/llama-3.1-70b-instruct",

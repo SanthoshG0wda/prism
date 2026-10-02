@@ -13,7 +13,7 @@ export default function App() {
   // AI settings
   const [provider, setProvider] = useState('nvidia');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('meta/llama-3.3-70b-instruct');
+  const [model, setModel] = useState('muse-glimmer');
 
   useEffect(() => {
     fetchCatalog();

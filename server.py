@@ -64,7 +64,7 @@ class ChatRequest(BaseModel):
     query: str
     provider: str = "nvidia"
     api_key: Optional[str] = None
-    model: str = "meta/llama-3.3-70b-instruct"
+    model: str = "muse-glimmer"
     base_url: str = "https://integrate.api.nvidia.com/v1"
 
 

@@ -19,11 +19,11 @@ T = TypeVar("T", bound=BaseModel)
 
 # Default NVIDIA NIM parameters
 NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_DEFAULT_MODEL = "meta/llama-3.3-70b-instruct"
+NVIDIA_DEFAULT_MODEL = "muse-glimmer"
 
 
 class LLMSettings(BaseSettings):
-    """Configuration settings for LLM integrations with NVIDIA NIM as premier provider."""
+    """Configuration settings for LLM integrations with Muse Glimmer as premier agentic model."""
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     provider: str = Field(default="nvidia", alias="LLM_PROVIDER")

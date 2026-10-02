@@ -110,7 +110,7 @@ export default function Sidebar({
         marginBottom: '16px',
       }}>
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#81c995' }} />
-        <span>NVIDIA NIM • Llama 3.3 70B</span>
+        <span>Muse Glimmer (Agentic 30B)</span>
       </div>
 
       {/* Configuration Accordion */}
@@ -158,9 +158,9 @@ export default function Sidebar({
                 fontSize: '0.8rem',
               }}
             >
-              <option value="nvidia">NVIDIA NIM (Recommended)</option>
+              <option value="nvidia">NVIDIA NIM / Hosted</option>
+              <option value="ollama">Local (Ollama / vLLM)</option>
               <option value="openai">OpenAI / Compatible</option>
-              <option value="ollama">Local (Ollama)</option>
             </select>
 
             <label style={{ display: 'block', color: '#9aa0a6', marginBottom: '4px' }}>Model</label>
@@ -178,6 +178,7 @@ export default function Sidebar({
                 fontSize: '0.8rem',
               }}
             >
+              <option value="muse-glimmer">Muse Glimmer (Agentic 30B - Default)</option>
               <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct</option>
               <option value="nvidia/llama-3.1-nemotron-70b-instruct">nvidia/llama-3.1-nemotron-70b</option>
               <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct</option>
