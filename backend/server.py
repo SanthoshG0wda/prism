@@ -160,14 +160,17 @@ def chat_with_agent(req: ChatRequest):
 
 
 @app.get("/api/dashboard")
-def get_dashboard():
+def get_dashboard(table_name: Optional[str] = None):
     """Returns KPI cards, charts, and data quality report for the active table."""
+    if table_name and table_name in session_state.datasets:
+        session_state.set_active_dataset(table_name)
+
     active_df = session_state.get_active_df()
     if active_df is None:
         raise HTTPException(status_code=400, detail="No active dataset.")
 
-    table_name = session_state.active_dataset_name or "active_dataset"
-    quality_report = check_data_quality(active_df, table_name)
+    resolved_table = session_state.active_dataset_name or "active_dataset"
+    quality_report = check_data_quality(active_df, resolved_table)
 
     numeric_cols = active_df.select_dtypes(include=["number"]).columns.tolist()
     total_rev = float(active_df["revenue"].sum()) if "revenue" in active_df.columns else (float(active_df[numeric_cols[0]].sum()) if numeric_cols else 0.0)

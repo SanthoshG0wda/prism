@@ -2,14 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   ArrowUp,
-  User,
   ChevronDown,
   ChevronRight,
   TrendingUp,
   AlertOctagon,
   Award,
   Calendar,
-  Code2,
   Copy,
   Check,
   Table,
@@ -17,11 +15,11 @@ import {
   Paperclip,
   ThumbsUp,
   ThumbsDown,
-  RotateCcw,
   FileSpreadsheet,
   Download,
   LayoutDashboard,
   SquarePen,
+  ArrowUpRight,
 } from 'lucide-react';
 import ChartRenderer from './ChartRenderer';
 
@@ -34,11 +32,12 @@ export default function ChatArea({
   onSendMessage,
   loading,
   onNewChat,
-  onOpenDashboard,
   onExportReport,
   onUploadFile,
   model,
   setModel,
+  activeArtifact,
+  onOpenArtifact,
 }) {
   const [input, setInput] = useState('');
   const [openThinking, setOpenThinking] = useState({});
@@ -87,6 +86,12 @@ export default function ChatArea({
 
   const starterCards = [
     {
+      title: 'Generate Executive Dashboard',
+      desc: 'Build an interactive KPI & data quality artifact for your dataset',
+      icon: <LayoutDashboard size={18} color="#10a37f" />,
+      query: 'Generate an Executive Dashboard artifact for the active dataset.',
+    },
+    {
       title: 'Top 5 Customers by Revenue',
       desc: 'Rank key client accounts by total gross volume',
       icon: <Award size={18} color="#f59e0b" />,
@@ -103,12 +108,6 @@ export default function ChatArea({
       desc: 'Scan revenue anomalies using Tukey IQR fences',
       icon: <AlertOctagon size={18} color="#ef4444" />,
       query: 'Detect anomalies in revenue and explain why they were flagged.',
-    },
-    {
-      title: '3-Month Revenue Forecast',
-      desc: 'Predict upcoming sales trends with confidence bounds',
-      icon: <Calendar size={18} color="#8b5cf6" />,
-      query: 'Forecast revenue for next 3 months with confidence intervals.',
     },
   ];
 
@@ -270,34 +269,33 @@ export default function ChatArea({
         </div>
 
         {/* Right Action Icons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button
-            onClick={onOpenDashboard}
-            title="Executive Dashboard"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
-              color: '#b4b4b4',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.82rem',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#2f2f2f';
-              e.currentTarget.style.color = '#ececec';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#b4b4b4';
-            }}
-          >
-            <LayoutDashboard size={15} />
-            <span>Dashboard</span>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Claude-style Artifact Header Shortcut (when an artifact exists) */}
+          {activeArtifact && (
+            <button
+              onClick={() => onOpenArtifact(activeArtifact)}
+              title="Open Executive Dashboard Artifact"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(16, 163, 127, 0.15)',
+                border: '1px solid rgba(16, 163, 127, 0.4)',
+                color: '#10a37f',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 500,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(16, 163, 127, 0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(16, 163, 127, 0.15)')}
+            >
+              <LayoutDashboard size={14} />
+              <span>Dashboard Artifact</span>
+              <ArrowUpRight size={13} />
+            </button>
+          )}
 
           <button
             onClick={onExportReport}
@@ -394,7 +392,7 @@ export default function ChatArea({
                 What can I help with?
               </h1>
               <p style={{ fontSize: '0.95rem', color: '#737373', marginBottom: '36px' }}>
-                Grounded analytical intelligence powered by DuckDB & NVIDIA NIM
+                Upload your CSV dataset and request on-demand analytical dashboards & insights.
               </p>
 
               {/* 4 Prompt Suggestion Cards */}
@@ -443,9 +441,15 @@ export default function ChatArea({
           {messages.map((msg, idx) => (
             <div key={idx} style={{ marginBottom: '28px', width: '100%' }}>
               {msg.role === 'user' ? (
-                /* User Message (Right-aligned bubble like ChatGPT) */
+                /* User Message */
                 <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <div className="user-bubble">
+                    {msg.is_upload && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', color: '#10a37f' }}>
+                        <FileSpreadsheet size={16} />
+                        <span style={{ fontWeight: 600 }}>File Upload</span>
+                      </div>
+                    )}
                     {msg.content}
                   </div>
                 </div>
@@ -470,9 +474,7 @@ export default function ChatArea({
                   <div style={{ flexGrow: 1, minWidth: 0 }}>
                     {/* ChatGPT o1/o3-style Thinking Accordion */}
                     {msg.steps_explanation && msg.steps_explanation.length > 0 && (
-                      <div style={{
-                        marginBottom: '12px',
-                      }}>
+                      <div style={{ marginBottom: '12px' }}>
                         <div
                           onClick={() => toggleThinking(idx)}
                           style={{
@@ -530,6 +532,109 @@ export default function ChatArea({
                     }}>
                       {msg.content}
                     </div>
+
+                    {/* Claude-style Artifact Card (When Dashboard artifact is generated) */}
+                    {msg.artifact && (
+                      <div
+                        onClick={() => onOpenArtifact(msg.artifact)}
+                        className="card-hover"
+                        style={{
+                          marginTop: '16px',
+                          backgroundColor: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: '14px',
+                          padding: '14px 18px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(16, 163, 127, 0.15)',
+                            border: '1px solid rgba(16, 163, 127, 0.35)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#10a37f',
+                            flexShrink: 0,
+                          }}>
+                            <LayoutDashboard size={20} />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.94rem', fontWeight: 600, color: '#ececec' }}>
+                                {msg.artifact.title}
+                              </span>
+                              <span style={{
+                                fontSize: '0.68rem',
+                                backgroundColor: '#282828',
+                                color: '#10a37f',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontWeight: 600,
+                              }}>
+                                Interactive Artifact
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '0.78rem', color: '#737373', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {msg.artifact.subtitle || 'Click to inspect KPIs, completeness audit, and distributions in side panel'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: '#10a37f',
+                          fontSize: '0.84rem',
+                          fontWeight: 500,
+                          backgroundColor: 'rgba(16, 163, 127, 0.12)',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          flexShrink: 0,
+                        }}>
+                          <span>View Artifact</span>
+                          <ArrowUpRight size={15} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Prompt Button (e.g. Prompt to generate dashboard after upload) */}
+                    {msg.action_prompt && (
+                      <div style={{ marginTop: '14px' }}>
+                        <button
+                          onClick={() => handleCardClick(msg.action_prompt)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '9px 16px',
+                            borderRadius: '10px',
+                            backgroundColor: '#1e1e1e',
+                            border: '1px solid #10a37f',
+                            color: '#10a37f',
+                            fontSize: '0.86rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(16, 163, 127, 0.15)',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(16, 163, 127, 0.15)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e1e1e')}
+                        >
+                          <LayoutDashboard size={16} />
+                          <span>Generate Executive Dashboard</span>
+                          <ArrowUpRight size={14} />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Plotly Interactive Visualizer */}
                     {msg.chart_spec && (

@@ -110,6 +110,10 @@ class AgentResponse(BaseModel):
     )
     anomalies: Optional[List[AnomalyItem]] = None
     data_quality: Optional[DataQualityReport] = None
+    artifact: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Claude-style interactive artifact (e.g. dashboard, dataset visualizer, report)"
+    )
     execution_time_ms: float = 0.0
 
 

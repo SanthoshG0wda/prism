@@ -11,18 +11,24 @@ import {
 } from 'lucide-react';
 import ChartRenderer from './ChartRenderer';
 
-export default function DashboardView({ activeDataset }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function DashboardView({ activeDataset, initialData }) {
+  const [data, setData] = useState(initialData || null);
+  const [loading, setLoading] = useState(!initialData);
 
   useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+      return;
+    }
     fetchDashboard();
-  }, [activeDataset]);
+  }, [activeDataset, initialData]);
 
   const fetchDashboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/dashboard');
+      const url = activeDataset ? `/api/dashboard?table_name=${encodeURIComponent(activeDataset)}` : '/api/dashboard';
+      const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
         setData(json);

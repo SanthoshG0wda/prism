@@ -83,6 +83,57 @@ class DataAnalystAgent:
             f"2. Inspected schema of table '{self.state.active_dataset_name}' ({len(active_df)} rows).",
         ]
 
+        # Check if the user specifically requested an executive dashboard artifact
+        is_dashboard_request = any(
+            w in user_question.lower()
+            for w in [
+                "dashboard",
+                "executive overview",
+                "create dashboard",
+                "generate dashboard",
+                "show dashboard",
+                "build dashboard",
+            ]
+        )
+        if is_dashboard_request:
+            table_name = self.state.active_dataset_name or "active_dataset"
+            steps.append(f"3. Recognized user request to generate Executive Dashboard artifact for '{table_name}'.")
+            steps.append("4. Executing deterministic data quality and executive KPI engine.")
+            dashboard_data = self._build_dashboard_data(active_df, table_name)
+            steps.append(f"5. Generated completeness score: {dashboard_data['kpis']['completeness_score']}% across {dashboard_data['kpis']['total_rows']} rows.")
+            steps.append("6. Structured interactive Claude-style dashboard artifact.")
+
+            artifact = {
+                "type": "dashboard",
+                "title": f"Executive Dashboard • {table_name}",
+                "subtitle": f"{table_name} • {len(active_df):,} records • {len(active_df.columns)} columns • {dashboard_data['kpis']['completeness_score']}% Completeness",
+                "table_name": table_name,
+                "data": dashboard_data,
+            }
+
+            answer = (
+                f"I have generated the interactive **Executive Dashboard** artifact for `{table_name}` ({len(active_df):,} rows, {len(active_df.columns)} columns).\n\n"
+                f"You can view the interactive KPI cards, quality audit, and automated metric distributions in the artifact panel."
+            )
+            total_elapsed = (time.perf_counter() - start_time) * 1000.0
+
+            response = AgentResponse(
+                question=user_question,
+                answer=answer,
+                steps_explanation=steps,
+                tool_used="generate_dashboard_artifact",
+                tool_result=dashboard_data,
+                artifact=artifact,
+                execution_time_ms=total_elapsed,
+            )
+            self.state.add_message(role="user", content=user_question)
+            self.state.add_message(
+                role="assistant",
+                content=answer,
+                metadata={"tool_used": "generate_dashboard_artifact", "has_artifact": True},
+            )
+            return response
+
         # Step 3: Tool selection & Query Planning
         try:
             plan = self.llm.generate_structured(
@@ -199,3 +250,59 @@ class DataAnalystAgent:
         )
 
         return response
+
+    def _build_dashboard_data(self, active_df: pd.DataFrame, table_name: str) -> Dict[str, Any]:
+        """Builds deterministic executive KPI and quality audit dictionary."""
+        from src.tools.profiling import check_data_quality
+        quality_report = check_data_quality(active_df, table_name)
+
+        numeric_cols = active_df.select_dtypes(include=["number"]).columns.tolist()
+        total_rev = float(active_df["revenue"].sum()) if "revenue" in active_df.columns else (float(active_df[numeric_cols[0]].sum()) if numeric_cols else 0.0)
+        total_profit = float(active_df["profit"].sum()) if "profit" in active_df.columns else 0.0
+
+        charts = []
+        if "region" in active_df.columns and "revenue" in active_df.columns:
+            grouped = active_df.groupby("region")["revenue"].sum().reset_index()
+            charts.append({
+                "title": "Revenue by Region",
+                "type": "bar",
+                "data": grouped.to_dict(orient="records"),
+                "x_key": "region",
+                "y_key": "revenue",
+            })
+        elif len(active_df.select_dtypes(include=["object"]).columns) > 0 and numeric_cols:
+            cat_col = active_df.select_dtypes(include=["object"]).columns[0]
+            num_col = numeric_cols[0]
+            grouped = active_df.groupby(cat_col)[num_col].sum().reset_index().head(8)
+            charts.append({
+                "title": f"{num_col.title()} by {cat_col.title()}",
+                "type": "bar",
+                "data": grouped.to_dict(orient="records"),
+                "x_key": cat_col,
+                "y_key": num_col,
+            })
+
+        if "product" in active_df.columns and "revenue" in active_df.columns:
+            grouped_p = active_df.groupby("product")["revenue"].sum().reset_index()
+            charts.append({
+                "title": "Revenue Share by Product",
+                "type": "pie",
+                "data": grouped_p.to_dict(orient="records"),
+                "x_key": "product",
+                "y_key": "revenue",
+            })
+
+        return {
+            "table_name": table_name,
+            "kpis": {
+                "total_rows": len(active_df),
+                "completeness_score": quality_report.completeness_score,
+                "total_revenue": total_rev,
+                "total_profit": total_profit,
+                "duplicate_rows": quality_report.duplicate_rows,
+                "numeric_columns_count": len(numeric_cols),
+            },
+            "quality_report": quality_report.model_dump(),
+            "charts": charts,
+        }
+

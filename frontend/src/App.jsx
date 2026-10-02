@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import DashboardView from './components/DashboardView';
+import ArtifactPanel from './components/ArtifactPanel';
 import SettingsModal from './components/SettingsModal';
 
 const STORAGE_KEY = 'ai_data_analyst_chats_v1';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'dashboard'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [catalog, setCatalog] = useState({ active_dataset: null, tables: [] });
   const [loading, setLoading] = useState(false);
+
+  // Claude-style Artifact state
+  const [activeArtifact, setActiveArtifact] = useState(null);
+  const [isArtifactOpen, setIsArtifactOpen] = useState(false);
+  const [isArtifactMaximized, setIsArtifactMaximized] = useState(false);
 
   // AI settings
   const [provider, setProvider] = useState('nvidia');
@@ -31,6 +35,11 @@ export default function App() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           setChats(parsed);
           setActiveChatId(parsed[0].id);
+          // Load active artifact if saved in the active chat
+          const latestArt = parsed[0]?.messages?.findLast?.((m) => m.artifact)?.artifact;
+          if (latestArt) {
+            setActiveArtifact(latestArt);
+          }
           return;
         }
       } catch (e) {
@@ -86,7 +95,6 @@ export default function App() {
       });
       if (res.ok) {
         fetchCatalog();
-        // Update active chat's dataset
         if (activeChatId) {
           setChats((prev) =>
             prev.map((c) => (c.id === activeChatId ? { ...c, activeDataset: name } : c))
@@ -95,17 +103,6 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error selecting dataset:', err);
-    }
-  };
-
-  const handleLoadSamples = async () => {
-    try {
-      const res = await fetch('/api/load-samples', { method: 'POST' });
-      if (res.ok) {
-        fetchCatalog();
-      }
-    } catch (err) {
-      console.error('Error loading samples:', err);
     }
   };
 
@@ -119,15 +116,22 @@ export default function App() {
     };
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
-    setActiveTab('chat');
+    setIsArtifactOpen(false);
+    setActiveArtifact(null);
   };
 
   const handleSelectChat = (id) => {
     setActiveChatId(id);
-    setActiveTab('chat');
     const targetChat = chats.find((c) => c.id === id);
     if (targetChat?.activeDataset && targetChat.activeDataset !== catalog.active_dataset) {
       handleSelectDataset(targetChat.activeDataset);
+    }
+    // Check if selected chat has an artifact
+    const chatArt = targetChat?.messages?.slice()?.reverse()?.find((m) => m.artifact)?.artifact;
+    if (chatArt) {
+      setActiveArtifact(chatArt);
+    } else {
+      setIsArtifactOpen(false);
     }
   };
 
@@ -164,18 +168,18 @@ export default function App() {
     };
     setChats([fresh]);
     setActiveChatId(fresh.id);
+    setIsArtifactOpen(false);
+    setActiveArtifact(null);
   };
 
   const handleSendMessage = async (queryText) => {
     const userMsg = { role: 'user', content: queryText };
 
-    // Determine title for chat if it was new
     let updatedTitle = activeChat?.title;
     if (!updatedTitle || updatedTitle === 'New conversation' || currentMessages.length === 0) {
       updatedTitle = queryText.length > 36 ? queryText.slice(0, 36) + '...' : queryText;
     }
 
-    // Append user message immediately
     setChats((prev) =>
       prev.map((c) =>
         c.id === activeChatId
@@ -218,8 +222,15 @@ export default function App() {
           generated_pandas_code: agentResponse.generated_pandas_code,
           chart_spec: agentResponse.chart_spec,
           anomalies: agentResponse.anomalies,
+          artifact: agentResponse.artifact || null,
           execution_time_ms: agentResponse.execution_time_ms,
         };
+
+        // If the response generated a Claude-style artifact, open the side panel
+        if (agentResponse.artifact) {
+          setActiveArtifact(agentResponse.artifact);
+          setIsArtifactOpen(true);
+        }
 
         setChats((prev) =>
           prev.map((c) =>
@@ -263,6 +274,7 @@ export default function App() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const file = files[0];
     const formData = new FormData();
     for (let i = 0; i < files.length; i++) {
       formData.append('files', files[i]);
@@ -273,8 +285,38 @@ export default function App() {
         method: 'POST',
         body: formData,
       });
+
       if (res.ok) {
-        fetchCatalog();
+        const data = await res.json();
+        await fetchCatalog();
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+
+        // Add upload confirmation messages with on-demand dashboard prompt
+        const uploadUserMsg = {
+          role: 'user',
+          content: `Uploaded CSV file: ${file.name}`,
+          is_upload: true,
+          filename: file.name,
+        };
+
+        const uploadAssistantMsg = {
+          role: 'assistant',
+          content: `I've successfully uploaded and registered **${file.name}** into the DuckDB analytical catalog.\n\nWould you like me to generate an Executive Dashboard artifact for this dataset?`,
+          action_prompt: `Generate an Executive Dashboard artifact for ${cleanName}`,
+        };
+
+        setChats((prev) =>
+          prev.map((c) =>
+            c.id === activeChatId
+              ? {
+                  ...c,
+                  activeDataset: cleanName,
+                  messages: [...c.messages, uploadUserMsg, uploadAssistantMsg],
+                }
+              : c
+          )
+        );
       } else {
         alert('Upload failed: ' + (await res.text()));
       }
@@ -301,9 +343,20 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      {/* Main Canvas Area */}
-      <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        {activeTab === 'chat' ? (
+      {/* Main Split Layout: Left Chat + Right Claude-style Artifact Panel */}
+      <main style={{ flexGrow: 1, display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
+        {/* Chat Conversation View */}
+        <div
+          style={{
+            flexGrow: 1,
+            width: isArtifactOpen && isArtifactMaximized ? '0%' : (isArtifactOpen ? '48%' : '100%'),
+            height: '100%',
+            display: isArtifactOpen && isArtifactMaximized ? 'none' : 'flex',
+            flexDirection: 'column',
+            transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            overflow: 'hidden',
+          }}
+        >
           <ChatArea
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen(true)}
@@ -313,67 +366,26 @@ export default function App() {
             onSendMessage={handleSendMessage}
             loading={loading}
             onNewChat={handleNewChat}
-            onOpenDashboard={() => setActiveTab('dashboard')}
             onExportReport={handleExport}
             onUploadFile={handleFileUpload}
             model={model}
             setModel={setModel}
+            activeArtifact={activeArtifact}
+            onOpenArtifact={(art) => {
+              setActiveArtifact(art);
+              setIsArtifactOpen(true);
+            }}
           />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Top Bar for Dashboard View */}
-            <div style={{
-              height: '52px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0 20px',
-              borderBottom: '1px solid var(--border-subtle)',
-              backgroundColor: 'var(--bg-main)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={() => setActiveTab('chat')}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-subtle)',
-                    backgroundColor: 'transparent',
-                    color: '#ececec',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2f2f2f')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  ← Back to Chat
-                </button>
-                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ececec' }}>
-                  Executive KPI & Quality Dashboard
-                </span>
-              </div>
+        </div>
 
-              <button
-                onClick={handleExport}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  backgroundColor: '#2f2f2f',
-                  color: '#ececec',
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Export Report
-              </button>
-            </div>
-
-            <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-              <DashboardView activeDataset={catalog.active_dataset} />
-            </div>
-          </div>
-        )}
+        {/* Claude-style Interactive Artifact Side Panel */}
+        <ArtifactPanel
+          artifact={activeArtifact}
+          isOpen={isArtifactOpen}
+          onClose={() => setIsArtifactOpen(false)}
+          isMaximized={isArtifactMaximized}
+          onToggleMaximize={() => setIsArtifactMaximized(!isArtifactMaximized)}
+        />
       </main>
 
       {/* Settings Dialog Modal */}
