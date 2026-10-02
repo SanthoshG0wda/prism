@@ -44,10 +44,13 @@ app.add_middleware(
 session_state = SessionState()
 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 def auto_load_samples():
     """Auto-load default sample datasets if empty."""
-    sample_sales = "data/samples/sales_data.csv"
-    sample_cust = "data/samples/customers.csv"
+    sample_sales = os.path.join(BASE_DIR, "data", "samples", "sales_data.csv")
+    sample_cust = os.path.join(BASE_DIR, "data", "samples", "customers.csv")
     if os.path.exists(sample_sales):
         df_sales = pd.read_csv(sample_sales)
         session_state.register_dataset("sales_data", df_sales)
@@ -222,7 +225,10 @@ def clear_chat():
 
 
 # Mount React build assets if present
-frontend_dist = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+frontend_dist = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "dist"))
+if not os.path.exists(frontend_dist):
+    frontend_dist = os.path.abspath(os.path.join(BASE_DIR, "frontend", "dist"))
+
 if os.path.exists(frontend_dist):
     from fastapi.staticfiles import StaticFiles
     from starlette.responses import FileResponse

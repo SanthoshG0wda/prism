@@ -91,64 +91,45 @@ flowchart TD
 - **Tools (`src/tools/`)**: Isolated deterministic calculation engines with strict typed contracts.
 - **Services (`src/services/`)**: LLM transport and JSON schema enforcement.
 - **Models (`src/models/`)**: Pydantic v2 schemas for all inputs, plans, and outputs.
-- **Utils (`src/utils/`)**: Structured logging and configuration.
-
----
-
-## 📁 Project Directory Structure
+- **Utils (`src/utils/`)**: Structured logging and configuration.## 📁 Project Directory Structure
 
 ```text
 ai-data-analyst/
-├── app.py                      # Streamlit application UI
-├── src/
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   ├── analyst.py          # 7-step DataAnalystAgent orchestrator
-│   │   ├── prompts.py          # Grounded system prompts
-│   │   └── state.py            # Session state, DuckDB catalog, and chat history
-│   ├── tools/
-│   │   ├── __init__.py
-│   │   ├── profiling.py        # Dataset statistical profiling & data quality checks
-│   │   ├── analysis.py         # Top-k, aggregations, correlations, time-series
-│   │   ├── sql.py              # Safe read-only DuckDB SQL execution
-│   │   ├── charts.py           # Plotly interactive chart generation
-│   │   ├── anomalies.py        # IQR and Z-Score outlier detection
-│   │   └── registry.py         # Central tool registry with type validation
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── llm.py              # LLM client (OpenAI/Gemini/Ollama) & offline heuristic
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py          # Pydantic data contracts and models
-│   └── utils/
-│       ├── __init__.py
-│       └── logging.py          # Structured logging configuration
-├── data/
-│   └── samples/
-│       ├── sales_data.csv      # Sample sales transactions with intentional outlier
-│       └── customers.csv       # Sample customer records for multi-table joins
-├── tests/
-│   ├── test_profiling.py       # Data quality and profiling unit tests
-│   ├── test_sql.py             # SQL safety and DuckDB execution tests
-│   ├── test_analysis.py        # Analytical calculations tests
-│   ├── test_anomalies.py       # IQR and Z-Score tests
-│   ├── test_charts.py          # Plotly visualization tests
-│   └── test_agent.py           # End-to-end agent orchestration tests
-├── docs/
-│   └── architecture.md         # Detailed architectural documentation
-├── requirements.txt            # Python dependencies
-├── .env.example                # Environment variables template
-├── .gitignore                  # Git ignore rules
-├── Dockerfile                  # Production container definition
+├── backend/                    # High-Performance Python Analytics Backend
+│   ├── src/
+│   │   ├── agent/              # 7-step DataAnalystAgent orchestrator & session state
+│   │   ├── tools/              # Deterministic DuckDB, IQR/Z-score, charts & profiling
+│   │   ├── services/           # NVIDIA NIM (muse-glimmer) & LLM integration
+│   │   ├── models/             # Pydantic v2 schemas & typed contracts
+│   │   └── utils/              # Structured logging and evaluation benchmarks
+│   ├── data/samples/           # Sample CSVs (sales_data.csv, customers.csv)
+│   ├── tests/                  # 23 comprehensive unit & evaluation tests
+│   ├── server.py               # FastAPI analytical REST server
+│   ├── run.py                  # Unified launcher
+│   ├── pyproject.toml          # uv package dependencies
+│   ├── uv.lock                 # Deterministic dependency lockfile
+│   ├── .env.example            # Environment variables configuration
+│   └── Dockerfile              # Multi-stage production container build
+├── frontend/                   # Modern React.js Client (ChatGPT / Gemini style)
+│   ├── src/
+│   │   ├── components/         # ChatArea, Sidebar, DashboardView, ChartRenderer
+│   │   ├── App.jsx             # Main application shell
+│   │   └── index.css           # Curated dark mode & typography styling
+│   ├── public/                 # Static brand assets
+│   ├── package.json            # Node.js dependencies
+│   └── vite.config.js          # Vite config with /api proxy to FastAPI
+├── docs/                       # Architecture diagrams & specifications
 ├── docker-compose.yml          # Container orchestration configuration
-└── README.md                   # Documentation and setup guide
+└── README.md                   # Project documentation
 ```
 
 ---
 
 ## 🚀 Getting Started with React & uv
 
-The application features a modern **React.js SPA** frontend paired with a high-performance **FastAPI & DuckDB** analytical backend.
+The project is neatly divided into two dedicated folders:
+- **`backend/`**: FastAPI, DuckDB, Pandas, NVIDIA NIM (`muse-glimmer`), and Pytest test suite managed via **`uv`**.
+- **`frontend/`**: Vite + React.js SPA featuring Gemini/ChatGPT aesthetics, Plotly chart visualizer, and dynamic model selector.
 
 ### Prerequisites
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) installed
@@ -157,38 +138,29 @@ The application features a modern **React.js SPA** frontend paired with a high-p
 
 ### Running the Application
 
-1. **Install Python backend dependencies:**
+1. **Setup & Run Backend:**
    ```bash
+   cd backend
    uv sync
-   ```
-
-2. **Install React frontend dependencies & build:**
-   ```bash
-   cd frontend
-   npm install
-   npm run build
-   cd ..
-   ```
-
-3. **Launch the Unified Application:**
-   ```bash
    uv run python run.py
    ```
-   Open **`http://localhost:8000`** in your browser!
+   *Note: `run.py` automatically checks and builds the frontend if needed and serves everything on `http://localhost:8000`.*
 
 ---
 
-### Development Mode (Hot Reloading)
+### Development Mode (Independent Hot Reloading)
 
 If you are developing and want instant hot module reloading:
 
-- **Terminal 1 (FastAPI Backend):**
+- **Terminal 1 (Backend API):**
   ```bash
+  cd backend
   uv run uvicorn server:app --port 8000 --reload
   ```
 - **Terminal 2 (React Vite Frontend):**
   ```bash
   cd frontend
+  npm install
   npm run dev
   ```
   Open **`http://localhost:5173`** (API requests are automatically proxied to port 8000).
@@ -197,7 +169,21 @@ If you are developing and want instant hot module reloading:
 
 ## 🧪 Running Tests with uv
 
+From the `backend/` directory:
+
 ```bash
+cd backend
+uv run pytest tests/ -v
+```
+
+---
+
+## 🧪 Running Tests with uv
+
+From the `backend/` directory:
+
+```bash
+cd backend
 uv run pytest tests/ -v
 ```
 
@@ -205,7 +191,7 @@ uv run pytest tests/ -v
 
 ## 🐳 Docker Deployment
 
-Run the complete multi-stage container (compiles React + serves FastAPI):
+Run the complete multi-stage container (builds React + serves FastAPI):
 
 ```bash
 docker compose up --build

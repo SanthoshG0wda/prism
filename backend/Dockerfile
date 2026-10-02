@@ -21,10 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev
 
-COPY . .
+COPY backend/ .
 # Copy compiled React frontend into production image
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 

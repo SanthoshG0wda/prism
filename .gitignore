@@ -43,3 +43,9 @@ htmlcov/
 
 # Streamlit
 .streamlit/
+
+# Node & Frontend
+node_modules/
+dist/
+.eslintcache
+
