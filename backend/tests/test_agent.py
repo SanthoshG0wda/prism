@@ -96,4 +96,48 @@ def test_agent_dashboard_artifact(agent_with_data):
     assert response.artifact is not None
     assert response.artifact["type"] == "dashboard"
     assert "kpis" in response.artifact["data"]
+    assert response.artifact["table_name"] == "sales"
+
+
+def test_agent_dashboard_specific_table_resolution():
+    state = SessionState()
+    df_sales = pd.DataFrame({"sales_col": [1, 2, 3]})
+    df_cust = pd.DataFrame({"cust_col": ["Alice", "Bob"], "spend": [100, 200]})
+    state.register_dataset("sales_data", df_sales)
+    state.register_dataset("customers", df_cust)
+
+    settings = LLMSettings(LLM_PROVIDER="mock")
+    llm = LLMService(settings)
+    agent = DataAnalystAgent(session_state=state, llm_service=llm)
+
+    response = agent.run("Generate an Executive Dashboard artifact for customers")
+    assert response.tool_used == "generate_dashboard_artifact"
+    assert response.artifact is not None
+    assert response.artifact["table_name"] == "customers"
+    assert response.artifact["data"]["kpis"]["total_rows"] == 2
+
+
+def test_agent_list_all_rows(agent_with_data):
+    response = agent_with_data.run("list all rows")
+    assert response.tool_used == "execute_sql_query"
+    assert response.tool_result is not None
+    assert "records" in response.tool_result
+    assert len(response.tool_result["records"]) == 4
+
+
+def test_agent_list_all_rows_in_sales_data():
+    state = SessionState()
+    df_sales = pd.DataFrame({"region": ["A", "B"], "revenue": [10, 20]})
+    state.register_dataset("sales_data", df_sales)
+
+    settings = LLMSettings(LLM_PROVIDER="mock")
+    llm = LLMService(settings)
+    agent = DataAnalystAgent(session_state=state, llm_service=llm)
+
+    response = agent.run("list all rows in the sales data file")
+    assert response.tool_used == "execute_sql_query"
+    assert response.tool_result is not None
+    assert "records" in response.tool_result
+    assert len(response.tool_result["records"]) == 2
+
 

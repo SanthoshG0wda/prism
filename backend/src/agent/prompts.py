@@ -15,7 +15,8 @@ CRITICAL ARCHITECTURE RULES:
 3. If the user asks for SQL, write a standard read-only DuckDB SQL query against the tables.
 4. If the user asks for charts, pick the optimal chart type ('bar', 'line', 'pie', 'scatter', 'histogram', 'box') and the exact columns.
 5. If the user asks for outliers/anomalies, use 'detect_anomalies' with 'iqr' or 'z_score'.
-6. Do NOT attempt arbitrary code execution.
+6. If the user asks to list all rows, show records, preview data, or view the table, use 'execute_sql_query' with 'SELECT * FROM <table> LIMIT 100'.
+7. Do NOT attempt arbitrary code execution.
 """
 
 SYSTEM_SYNTHESIS_PROMPT = """You are a senior business intelligence consultant presenting verified analytical findings.

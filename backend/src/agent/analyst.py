@@ -6,7 +6,7 @@ and result validation without allowing the LLM to invent numbers.
 
 import json
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from src.agent.prompts import (
     SYSTEM_CONVERSATIONAL_PROMPT,
@@ -171,8 +171,9 @@ class DataAnalystAgent:
             self.state.add_message(role="assistant", content=answer, metadata={"tool_used": "conversational_agent"})
             return response
 
-        # Dataset Query Flow: Ensure a dataset is loaded
-        active_df = self.state.get_active_df()
+        # Dataset Query Flow: Ensure a dataset is loaded and resolve targeted table
+        target_table_name, target_df = self._resolve_target_table(user_question)
+        active_df = target_df if target_df is not None else self.state.get_active_df()
         if active_df is None:
             no_data_msg = (
                 "I would love to perform that analysis for you! However, there is no dataset currently loaded in the session.\n\n"
@@ -196,6 +197,7 @@ class DataAnalystAgent:
 
         planning_prompt = (
             f"AVAILABLE DATASETS & SCHEMAS:\n{schema_context}\n\n"
+            f"TARGET TABLE: {target_table_name}\n\n"
             f"CONVERSATION CONTEXT:\n{history_context}\n\n"
             f"USER QUESTION: {user_question}\n\n"
             f"Based on the dataset schema and available tools, formulate the QueryPlan JSON."
@@ -203,7 +205,7 @@ class DataAnalystAgent:
 
         steps: List[str] = [
             f"1. Analyzed user question: '{user_question}'.",
-            f"2. Inspected schema of table '{self.state.active_dataset_name}' ({len(active_df)} rows).",
+            f"2. Inspected schema of table '{target_table_name}' ({len(active_df)} rows).",
         ]
 
         # Check if the user specifically requested an executive dashboard artifact
@@ -219,7 +221,7 @@ class DataAnalystAgent:
             ]
         )
         if is_dashboard_request:
-            table_name = self.state.active_dataset_name or "active_dataset"
+            table_name = target_table_name
             steps.append(f"3. Recognized user request to generate Executive Dashboard artifact for '{table_name}'.")
             steps.append("4. Executing deterministic data quality and executive KPI engine.")
             dashboard_data = self._build_dashboard_data(active_df, table_name)
@@ -429,6 +431,34 @@ class DataAnalystAgent:
             "charts": charts,
         }
 
+    def _resolve_target_table(self, user_question: str) -> Tuple[str, Optional[pd.DataFrame]]:
+        """
+        Determines which dataset the user query is targeting.
+        If a specific table is mentioned (e.g. 'customers', 'sales_data', 'sales data'),
+        switches the active dataset to that table. Otherwise returns current active dataset.
+        """
+        q_lower = user_question.lower()
+        # Check all registered datasets
+        for name, df in self.state.datasets.items():
+            name_clean = name.lower()
+            name_spaced = name_clean.replace("_", " ")
+            if name_clean in q_lower or name_spaced in q_lower:
+                self.state.set_active_dataset(name)
+                return name, df
+
+        # If not explicitly named, use currently active dataset
+        active_name = self.state.active_dataset_name
+        if active_name and active_name in self.state.datasets:
+            return active_name, self.state.datasets[active_name]
+
+        # If still None but datasets exist, use the first one
+        if self.state.datasets:
+            first_name = next(iter(self.state.datasets.keys()))
+            self.state.set_active_dataset(first_name)
+            return first_name, self.state.datasets[first_name]
+
+        return "active_dataset", None
+
     def _is_dataset_query(self, question: str) -> bool:
         """
         Determines whether the user question requires executing deterministic data tools
@@ -440,15 +470,30 @@ class DataAnalystAgent:
         if any(w in q for w in ["dashboard", "executive overview", "create dashboard", "generate dashboard", "show dashboard", "build dashboard"]):
             return True
 
-        # 2. Check for explicit table mentions
+        # 2. Check for explicit table mentions (both underscore and spaced, e.g. 'sales data' vs 'sales_data')
         table_names = [t.lower() for t in self.state.datasets.keys()]
-        mentions_table = any(t in q for t in table_names)
+        mentions_table = any(t in q or t.replace("_", " ") in q for t in table_names)
 
         # 3. Explicit dataset anchors (referencing loaded tabular data)
-        dataset_anchors = ["in our data", "in this dataset", "in the dataset", "in the table", "in my data", "in the csv", "from the data", "active dataset", "sales_data", "customers"]
+        dataset_anchors = [
+            "in our data", "in this dataset", "in the dataset", "in the table", "in my data", "in the csv",
+            "from the data", "active dataset", "sales_data", "sales data", "customers", "customer data",
+            "the file", "the data file", "the csv file", "data file", "csv file", "all rows", "all records",
+            "list all", "list rows", "show rows", "show records", "view rows", "display rows", "table rows"
+        ]
         has_dataset_anchor = any(a in q for a in dataset_anchors)
 
-        # 4. Conceptual / Educational / Coding inquiries that should be handled conversationally
+        # 4. Row listing / table preview queries when tables are present
+        row_inspection_triggers = [
+            "list all", "list rows", "show all rows", "show rows", "view rows", "display rows",
+            "all rows", "records", "preview table", "show table", "view table", "preview data",
+            "show data", "display data", "first rows", "head", "see rows", "browse table", "browse data",
+            "print table", "rows in", "records in"
+        ]
+        if any(trigger in q for trigger in row_inspection_triggers) and bool(self.state.datasets):
+            return True
+
+        # 5. Conceptual / Educational / Coding inquiries that should be handled conversationally
         conceptual_starts = (
             "what is ", "what are ", "how does ", "how do ", "how can ", "explain ", "describe ",
             "can you explain ", "tell me about ", "write a ", "write code ", "give an example of ",
@@ -468,7 +513,7 @@ class DataAnalystAgent:
         if mentions_table or has_dataset_anchor:
             return True
 
-        # 5. Specific data tool triggers for analytical operations
+        # 6. Specific data tool triggers for analytical operations
         data_triggers = [
             "top ", "highest", "lowest", "bottom ", "most ", "least ",
             "underperforming", "best performing", "revenue by", "sales by", "profit by",
@@ -485,7 +530,7 @@ class DataAnalystAgent:
         if "sql" in q and any(w in q for w in ["query", "generate", "write", "run", "execute"]):
             return True
 
-        # 6. Column name matching if active tables exist
+        # 7. Column name matching if active tables exist
         all_cols = []
         for meta in self.state.metadata_cache.values():
             for c in meta.columns:

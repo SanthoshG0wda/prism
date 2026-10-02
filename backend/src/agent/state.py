@@ -36,8 +36,7 @@ class SessionState:
             clean_name = "dataset_1"
 
         self.datasets[clean_name] = df
-        if self.active_dataset_name is None:
-            self.active_dataset_name = clean_name
+        self.active_dataset_name = clean_name
 
         # Register in DuckDB
         self.duckdb_conn.register(clean_name, df)

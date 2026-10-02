@@ -202,6 +202,28 @@ class LLMService:
 
         # Check if planning step requested
         if json_mode and "selected_tool" in (system_prompt or ""):
+            # 0. List all rows / records / table preview intent
+            if any(w in prompt_lower for w in [
+                "list all", "list rows", "show all rows", "show rows", "view rows", "display rows",
+                "all rows", "records", "preview table", "show table", "view table", "preview data",
+                "show data", "display data", "first rows", "head", "see rows", "browse table", "browse data"
+            ]):
+                table_target = "active_dataset"
+                if "customer" in prompt_lower:
+                    table_target = "customers"
+                elif "sales" in prompt_lower:
+                    table_target = "sales_data"
+
+                sql_q = f"SELECT * FROM {table_target} LIMIT 100"
+                return json.dumps({
+                    "user_intent": f"List and inspect records from {table_target}",
+                    "reasoning": f"Identified request to inspect rows from '{table_target}'. Selected execute_sql_query with LIMIT 100.",
+                    "selected_tool": "execute_sql_query",
+                    "tool_parameters": {"query": sql_q},
+                    "generated_sql": sql_q,
+                    "generated_pandas_code": "df.head(100)",
+                })
+
             # 1. Anomaly detection intent
             if "anomal" in prompt_lower or "outlier" in prompt_lower:
                 metric = "revenue"
@@ -341,6 +363,13 @@ class LLMService:
 
         # Non-JSON response (conversational agent or tool synthesis)
         if "TOOL OUTPUT DATA:" in prompt:
+            if "records" in prompt and ("SELECT" in prompt or "row_count" in prompt or "list" in prompt_lower or "rows" in prompt_lower):
+                return (
+                    "Retrieved verified records from the dataset via safe DuckDB SQL execution.\n\n"
+                    "- **Methodology**: Executed deterministic read-only query in DuckDB.\n"
+                    "- **Data Integrity**: Verified directly against in-memory session tables.\n"
+                    "- **Granular Inspection**: All columns and records are rendered in the interactive tabular view below."
+                )
             return (
                 f"Based on the deterministic calculation from the dataset:\n\n"
                 f"- **Methodology**: Computed deterministically via safe query execution.\n"
