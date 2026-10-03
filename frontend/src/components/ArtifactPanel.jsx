@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import DashboardView from './DashboardView';
+import { getApiUrl } from '../utils/api';
 
 export default function ArtifactPanel({
   artifact,
@@ -21,7 +22,7 @@ export default function ArtifactPanel({
   if (!isOpen || !artifact) return null;
 
   const handleExport = () => {
-    window.open('/api/export-report', '_blank');
+    window.open(getApiUrl('/api/export-report'), '_blank');
   };
 
   return (

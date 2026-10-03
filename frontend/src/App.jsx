@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ArtifactPanel from './components/ArtifactPanel';
 import SettingsModal from './components/SettingsModal';
+import { getApiUrl } from './utils/api';
 
 const STORAGE_KEY = 'ai_data_analyst_chats_v1';
 const SESSION_KEY = 'ai_data_analyst_session_id';
@@ -45,8 +46,7 @@ function getSessionId() {
 }
 
 function apiFetch(url, options = {}) {
-  const base = import.meta.env.VITE_API_URL || '';
-  const fullUrl = url.startsWith('/') && base ? `${base.replace(/\/+$/, '')}${url}` : url;
+  const fullUrl = getApiUrl(url);
   const headers = { ...(options.headers || {}), 'X-Session-Id': getSessionId() };
   return fetch(fullUrl, { ...options, headers });
 }
@@ -550,7 +550,7 @@ export default function App() {
   };
 
   const handleExport = () => {
-    window.open('/api/export-report', '_blank');
+    window.open(getApiUrl('/api/export-report'), '_blank');
   };
 
   // Explicit opt-in demo helper: loads bundled sample CSVs into this session.

@@ -91,6 +91,22 @@ def test_llm_connection(req: LlmTestRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/")
+def root_status():
+    return {
+        "status": "ok",
+        "service": "prism-backend",
+        "version": "1.0.0",
+        "health": "/api/health",
+        "docs": "/docs"
+    }
+
+
+@app.get("/health")
+def health_alias(session: tuple[str, SessionState] = Depends(resolve_session)):
+    return health_check(session)
+
+
 @app.get("/api/health")
 def health_check(session: tuple[str, SessionState] = Depends(resolve_session)):
     _, state = session

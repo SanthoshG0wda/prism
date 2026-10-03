@@ -10,6 +10,7 @@ import {
   Download,
 } from 'lucide-react';
 import ChartRenderer from './ChartRenderer';
+import { getApiUrl } from '../utils/api';
 
 export default function DashboardView({ activeDataset, initialData }) {
   const [data, setData] = useState(initialData || null);
@@ -30,7 +31,7 @@ export default function DashboardView({ activeDataset, initialData }) {
       let sid = null;
       try { sid = localStorage.getItem('ai_data_analyst_session_id'); } catch { sid = null; }
       const url = activeDataset ? `/api/dashboard?table_name=${encodeURIComponent(activeDataset)}` : '/api/dashboard';
-      const res = await fetch(url, { headers: sid ? { 'X-Session-Id': sid } : {} });
+      const res = await fetch(getApiUrl(url), { headers: sid ? { 'X-Session-Id': sid } : {} });
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -74,7 +75,7 @@ export default function DashboardView({ activeDataset, initialData }) {
         </div>
 
         <button
-          onClick={() => window.open('/api/export-report', '_blank')}
+          onClick={() => window.open(getApiUrl('/api/export-report'), '_blank')}
           style={{
             display: 'flex',
             alignItems: 'center',
