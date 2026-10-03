@@ -28,6 +28,79 @@ import {
 import ChartRenderer from './ChartRenderer';
 import MarkdownRenderer from './MarkdownRenderer';
 
+const SLASH_COMMANDS = [
+  {
+    cmd: '/dashboard',
+    label: 'Build Executive Dashboard',
+    desc: 'Interactive Claude-style artifact with KPI cards & quality audit',
+    prompt: 'Generate an Executive Dashboard artifact for the active dataset',
+    icon: LayoutDashboard,
+    badge: 'Artifact',
+    badgeBg: 'rgba(59, 130, 246, 0.15)',
+    badgeColor: '#60a5fa',
+  },
+  {
+    cmd: '/anomalies',
+    label: 'Detect Anomalies & Outliers',
+    desc: 'Audit numeric columns for statistical outliers using Tukey IQR & Z-scores',
+    prompt: 'Detect statistical anomalies and outliers in the dataset and explain why they were flagged',
+    icon: AlertOctagon,
+    badge: 'Audit',
+    badgeBg: 'rgba(239, 68, 68, 0.15)',
+    badgeColor: '#f87171',
+  },
+  {
+    cmd: '/quality',
+    label: 'Data Quality Audit',
+    desc: 'Check completeness score, duplicate rows, missing values & column warnings',
+    prompt: 'Run a comprehensive data quality check on the active dataset',
+    icon: Check,
+    badge: 'Quality',
+    badgeBg: 'rgba(16, 185, 129, 0.15)',
+    badgeColor: '#34d399',
+  },
+  {
+    cmd: '/profile',
+    label: 'Profile Dataset Schema',
+    desc: 'Compute column datatypes, distributions, null rates, and sample values',
+    prompt: 'Profile and summarize all columns in the dataset',
+    icon: FileSpreadsheet,
+    badge: 'Profiling',
+    badgeBg: 'rgba(139, 92, 246, 0.15)',
+    badgeColor: '#a78bfa',
+  },
+  {
+    cmd: '/sql',
+    label: 'DuckDB SQL Engine',
+    desc: 'Execute fast analytical DuckDB SQL query with aggregations & limit',
+    prompt: 'Generate and execute a DuckDB SQL query to analyze the active dataset',
+    icon: Table,
+    badge: 'DuckDB',
+    badgeBg: 'rgba(245, 158, 11, 0.15)',
+    badgeColor: '#fbbf24',
+  },
+  {
+    cmd: '/forecast',
+    label: 'Forecast Metric Trend',
+    desc: 'Project future values with 95% confidence intervals based on trends',
+    prompt: 'Forecast metric trends with 95% confidence intervals',
+    icon: TrendingUp,
+    badge: 'Predictive',
+    badgeBg: 'rgba(236, 72, 153, 0.15)',
+    badgeColor: '#f472b6',
+  },
+  {
+    cmd: '/chart',
+    label: 'Interactive Visualization',
+    desc: 'Render interactive Plotly chart (bar, line, scatter, or pie)',
+    prompt: 'Generate an interactive chart visualizing the key metrics of the dataset',
+    icon: Sparkles,
+    badge: 'Plotly',
+    badgeBg: 'rgba(6, 182, 212, 0.15)',
+    badgeColor: '#22d3ee',
+  },
+];
+
 export default function ChatArea({
   sidebarOpen,
   onToggleSidebar,
@@ -102,6 +175,61 @@ export default function ChatArea({
     if (e.target) e.target.value = '';
   };
 
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [selectedSlashIdx, setSelectedSlashIdx] = useState(0);
+
+  const filteredSlashCommands = SLASH_COMMANDS.filter((c) => {
+    if (!input.startsWith('/')) return true;
+    const search = input.toLowerCase();
+    return c.cmd.toLowerCase().includes(search) || c.label.toLowerCase().includes(search.slice(1));
+  });
+
+  const handleExecuteSlash = (cmd) => {
+    setSlashMenuOpen(false);
+    setInput('');
+    onSendMessage(cmd.prompt, attachedFiles.map((f) => f.file));
+    setAttachedFiles([]);
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+    if (val.startsWith('/')) {
+      setSlashMenuOpen(true);
+      setSelectedSlashIdx(0);
+    } else if (slashMenuOpen && !val.includes('/')) {
+      setSlashMenuOpen(false);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (slashMenuOpen && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSlashIdx((prev) => (prev + 1) % filteredSlashCommands.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSlashIdx((prev) => (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const chosen = filteredSlashCommands[selectedSlashIdx] || filteredSlashCommands[0];
+        if (chosen) {
+          handleExecuteSlash(chosen);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlashMenuOpen(false);
+        return;
+      }
+    }
+  };
+
   const handleRemoveFile = (id) => {
     setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
   };
@@ -109,6 +237,7 @@ export default function ChatArea({
   const handleSubmit = (e) => {
     e.preventDefault();
     if ((!input.trim() && attachedFiles.length === 0) || loading) return;
+    setSlashMenuOpen(false);
     onSendMessage(input.trim(), attachedFiles.map((f) => f.file));
     setInput('');
     setAttachedFiles([]);
@@ -1183,6 +1312,116 @@ export default function ChatArea({
             position: 'relative',
           }}
         >
+          {/* Floating Slash Command Popup Menu */}
+          {slashMenuOpen && filteredSlashCommands.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: 0,
+                right: 0,
+                marginBottom: '12px',
+                backgroundColor: '#212121',
+                border: '1px solid #383838',
+                borderRadius: '16px',
+                boxShadow: '0 18px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+                overflow: 'hidden',
+                zIndex: 60,
+                maxHeight: '380px',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div
+                style={{
+                  padding: '10px 16px',
+                  borderBottom: '1px solid #2d2d2d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#1a1a1a',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={14} color="#60a5fa" />
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e5e5e5', letterSpacing: '0.3px' }}>
+                    Special Features & Slash Commands
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: '#888' }}>
+                  ↑↓ navigate • ↵ or click to run • Esc close
+                </span>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '6px' }}>
+                {filteredSlashCommands.map((c, idx) => {
+                  const IconComp = c.icon;
+                  const isSelected = idx === selectedSlashIdx;
+                  return (
+                    <div
+                      key={c.cmd}
+                      onClick={() => handleExecuteSlash(c)}
+                      onMouseEnter={() => setSelectedSlashIdx(idx)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? '#2f2f2f' : 'transparent',
+                        transition: 'background-color 0.1s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            backgroundColor: isSelected ? '#3a3a3a' : '#282828',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: c.badgeColor,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <IconComp size={16} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#fff', fontSize: '0.88rem' }}>
+                              {c.cmd}
+                            </span>
+                            <span style={{ fontSize: '0.85rem', color: '#e0e0e0', fontWeight: 500 }}>
+                              {c.label}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: '#999', lineHeight: 1.3 }}>
+                            {c.desc}
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: c.badgeBg,
+                          color: c.badgeColor,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {c.badge}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -1301,12 +1540,48 @@ export default function ChatArea({
                 style={{ display: 'none' }}
               />
 
+              {/* Slash Command Quick Trigger Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSlashMenuOpen((prev) => !prev);
+                  if (!input.startsWith('/')) {
+                    setInput('/');
+                  }
+                }}
+                title="Special features & slash commands (/)"
+                style={{
+                  background: slashMenuOpen ? 'rgba(96, 165, 250, 0.2)' : 'transparent',
+                  border: 'none',
+                  color: slashMenuOpen ? '#60a5fa' : '#b4b4b4',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  fontFamily: 'monospace',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!slashMenuOpen) e.currentTarget.style.backgroundColor = '#383838';
+                }}
+                onMouseLeave={(e) => {
+                  if (!slashMenuOpen) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                /
+              </button>
+
               {/* Prompt Input Field */}
               <input
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={attachedFiles.length > 0 ? "Ask a question about the attached file(s)..." : `Message Prism... (${activeDataset || 'ready'})`}
+                onChange={handleInputChange}
+                onKeyDown={handleInputKeyDown}
+                placeholder={attachedFiles.length > 0 ? "Ask a question about the attached file(s)..." : `Message Prism or type / for features... (${activeDataset || 'ready'})`}
                 disabled={loading}
                 style={{
                   flexGrow: 1,
