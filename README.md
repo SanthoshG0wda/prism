@@ -313,7 +313,7 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
 | **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
-| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (21s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
+
 | **UI Screenshots** | ✅ Ready | 6 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots-in-order) |
 | **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](file:///home/santhosh/dbo/backend/Dockerfile) & [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](file:///home/santhosh/dbo/backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](file:///home/santhosh/dbo/backend/data/samples/customers.csv), [`sales_data_sample.csv`](file:///home/santhosh/dbo/sales_data_sample.csv) |
