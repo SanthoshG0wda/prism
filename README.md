@@ -3,9 +3,9 @@
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Monorepo-181717?logo=github)](https://github.com/SanthoshG0wda/prism)
 [![Backend Repository](https://img.shields.io/badge/GitHub-Backend_Repo-181717?logo=github)](https://github.com/SanthoshG0wda/prism-backend)
 [![Frontend Repository](https://img.shields.io/badge/GitHub-Frontend_Repo-181717?logo=github)](https://github.com/SanthoshG0wda/prism-frontend)
-[![Tests Passing](https://img.shields.io/badge/Tests-155%20Passing-success)](https://github.com/SanthoshG0wda/prism)
-[![Docker Support](https://img.shields.io/badge/Docker-Supported-blue?logo=docker)](https://github.com/SanthoshG0wda/prism#docker-deployment)
-[![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SanthoshG0wda/prism)
+[![Tests Passing](https://img.shields.io/badge/Tests-155%20Passing-success)](https://github.com/SanthoshG0wda/prism/tree/main/backend/tests)
+[![Docker Support](https://img.shields.io/badge/Docker-Supported-blue?logo=docker)](https://github.com/SanthoshG0wda/prism#-docker-deployment)
+[![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SanthoshG0wda/prism/blob/main/LICENSE)
 
 > 🌐 **Live Production Deployments**:
 > - **Frontend Web App**: [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app)
@@ -27,7 +27,7 @@ A production-grade, conversational Data Analyst platform that enables users to u
 This codebase is architected for both **monorepo local development** and **independent, decoupled microservice deployments**:
 
 1. **[Unified Monorepo (`SanthoshG0wda/prism`)](https://github.com/SanthoshG0wda/prism)**:
-   - Houses the complete repository containing both `backend/` and `frontend/`, comprehensive test suite (155 tests), `docker-compose.yml`, architecture documentation, demo video, and screenshots.
+   - Houses the complete repository containing both `backend/` and `frontend/`, comprehensive test suite (155 tests), `docker-compose.yml`, architecture documentation, and visual walkthrough screenshots.
    - Recommended for local full-stack development, Docker execution, and grading.
 
 2. **[Standalone Backend Repository (`SanthoshG0wda/prism-backend`)](https://github.com/SanthoshG0wda/prism-backend)**:
@@ -310,13 +310,13 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Standalone Frontend Repo** | ✅ Ready | [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend) |
 | **Live Web App (Frontend)** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) |
 | **Live API (Backend)** | ✅ Live | [https://prism-backend-tau.vercel.app](https://prism-backend-tau.vercel.app) (Swagger: [`/docs`](https://prism-backend-tau.vercel.app/docs)) |
-| **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
+| **Complete Source Code** | ✅ Ready | Full repo: `backend/`, `frontend/`, `docker-compose.yml` |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
-| **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
-| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (21s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
-| **UI Screenshots** | ✅ Ready | 6 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots-in-order) |
-| **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](file:///home/santhosh/dbo/backend/Dockerfile) & [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
-| **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](file:///home/santhosh/dbo/backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](file:///home/santhosh/dbo/backend/data/samples/customers.csv), [`sales_data_sample.csv`](file:///home/santhosh/dbo/sales_data_sample.csv) |
+| **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & `docs/architecture.md` |
+| **Live Interactive Demo** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) *(Zero-install cloud demo)* |
+| **UI Screenshots & Walkthrough** | ✅ Ready | 6 High-Resolution Screenshots in `docs/screenshots/` & [embedded below](#-key-features--screenshots-in-order) |
+| **Docker Support (Preferred)** | ✅ Ready | `backend/Dockerfile` & `docker-compose.yml` |
+| **Sample Dataset(s)** | ✅ Ready | `backend/data/samples/sales_data.csv`, `backend/data/samples/customers.csv`, `sales_data_sample.csv` |
 | **Assumptions & Implementation Notes** | ✅ Ready | [Detailed Below](#-assumptions--implementation-notes) |
 
 ---
@@ -370,7 +370,7 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 ### 1. Mathematical Grounding & Hallucination Prevention
 - **Core Principle**: The Large Language Model is strictly prohibited from computing numbers directly.
-- **Workflow**: All metrics, sums, averages, rankings, correlations, and fences are computed by isolated deterministic engines (`DuckDB`, `Pandas`, `SciPy`/numpy). The LLM functions solely as an intent parser, query planner, and insight synthesizer.
+- **Workflow**: All metrics, sums, averages, rankings, correlations, and fences are computed by isolated deterministic engines (`DuckDB`, `Pandas`/numpy). The LLM functions solely as an intent parser, query planner, and insight synthesizer.
 
 ### 2. Sandbox Execution & Code Safety
 - **No Arbitrary `exec()` / `eval()`**: The server never invokes Python `exec()` or `eval()` on user-supplied or LLM-generated code.
