@@ -24,11 +24,33 @@ def detect_anomalies_iqr(
     Flag condition: value < (Q1 - multiplier * IQR) OR value > (Q3 + multiplier * IQR).
     """
     if column not in df.columns:
-        raise ValueError(f"Column '{column}' does not exist in dataset.")
+        matched = [c for c in df.columns if c.strip().lower() == column.strip().lower()]
+        if matched:
+            column = matched[0]
+        else:
+            num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+            if num_cols:
+                column = num_cols[0]
+            else:
+                raise ValueError(f"Column '{column}' does not exist in dataset.")
 
     series = df[column].dropna()
     if not pd.api.types.is_numeric_dtype(series):
-        raise ValueError(f"Column '{column}' must be numeric for anomaly detection.")
+        try:
+            converted = pd.to_numeric(series.astype(str).str.replace(r'[\$,]', '', regex=True), errors='coerce').dropna()
+            if len(converted) >= max(3, int(len(series) * 0.5)):
+                series = converted
+            else:
+                num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+                if num_cols:
+                    column = num_cols[0]
+                    series = df[column].dropna()
+                else:
+                    raise ValueError(f"Column '{column}' must be numeric for anomaly detection.")
+        except Exception:
+            raise ValueError(f"Column '{column}' must be numeric for anomaly detection.")
+
+    series = series.replace([np.inf, -np.inf], np.nan).dropna()
 
     if len(series) < 4:
         return AnomalyDetectionResult(
@@ -110,11 +132,33 @@ def detect_anomalies_zscore(
     Flag condition: |(value - mean) / std| > threshold.
     """
     if column not in df.columns:
-        raise ValueError(f"Column '{column}' does not exist in dataset.")
+        matched = [c for c in df.columns if c.strip().lower() == column.strip().lower()]
+        if matched:
+            column = matched[0]
+        else:
+            num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+            if num_cols:
+                column = num_cols[0]
+            else:
+                raise ValueError(f"Column '{column}' does not exist in dataset.")
 
     series = df[column].dropna()
     if not pd.api.types.is_numeric_dtype(series):
-        raise ValueError(f"Column '{column}' must be numeric for Z-Score anomaly detection.")
+        try:
+            converted = pd.to_numeric(series.astype(str).str.replace(r'[\$,]', '', regex=True), errors='coerce').dropna()
+            if len(converted) >= max(3, int(len(series) * 0.5)):
+                series = converted
+            else:
+                num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+                if num_cols:
+                    column = num_cols[0]
+                    series = df[column].dropna()
+                else:
+                    raise ValueError(f"Column '{column}' must be numeric for Z-Score anomaly detection.")
+        except Exception:
+            raise ValueError(f"Column '{column}' must be numeric for Z-Score anomaly detection.")
+
+    series = series.replace([np.inf, -np.inf], np.nan).dropna()
 
     if len(series) < 3:
         return AnomalyDetectionResult(

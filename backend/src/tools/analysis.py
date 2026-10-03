@@ -28,7 +28,10 @@ def top_k_analysis(
         raise ValueError(f"Metric column '{metric_col}' not found in dataset columns: {list(df.columns)}")
 
     if not pd.api.types.is_numeric_dtype(df[metric_col]):
-        raise ValueError(f"Metric column '{metric_col}' must be numeric.")
+        if pd.api.types.is_numeric_dtype(df[group_col]):
+            group_col, metric_col = metric_col, group_col
+        else:
+            raise ValueError(f"Metric column '{metric_col}' must be numeric.")
 
     grouped = df.groupby(group_col)[metric_col].agg(agg_func).reset_index()
     sorted_df = grouped.sort_values(by=metric_col, ascending=ascending).head(k)

@@ -20,10 +20,11 @@ ENCODINGS: Tuple[str, ...] = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
 
 
 def read_csv_bytes(contents: bytes, filename: str = "upload.csv") -> pd.DataFrame:
-    """Parse CSV bytes into a DataFrame, falling back across encodings.
+    """Parse CSV bytes into a DataFrame, falling back across encodings and delimiters.
 
-    Only UnicodeDecodeError triggers the next encoding; any other parse error
-    (empty file, malformed CSV) propagates to the caller for a clean 400.
+    1. Falls back across encodings (utf-8-sig, utf-8, cp1252, latin-1).
+    2. Automatically sniffs alternative delimiters (; \t |) if comma yields a single compound column.
+    3. Strips whitespace from column names.
     """
     if not contents or not contents.strip():
         raise ValueError("CSV file is empty.")
@@ -31,7 +32,15 @@ def read_csv_bytes(contents: bytes, filename: str = "upload.csv") -> pd.DataFram
     last_decode_err: Exception | None = None
     for enc in ENCODINGS:
         try:
-            df = pd.read_csv(io.BytesIO(contents), encoding=enc)
+            try:
+                df = pd.read_csv(io.BytesIO(contents), encoding=enc)
+                # If parsed as a single column containing delimiters, sniff with python engine
+                if len(df.columns) == 1 and any(d in str(df.columns[0]) for d in (';', '\t', '|')):
+                    df = pd.read_csv(io.BytesIO(contents), sep=None, engine='python', encoding=enc)
+            except Exception:
+                df = pd.read_csv(io.BytesIO(contents), sep=None, engine='python', encoding=enc)
+
+            df.columns = [str(c).strip() for c in df.columns]
             if enc not in ("utf-8-sig", "utf-8"):
                 logger.info(f"Decoded '{filename}' with fallback encoding '{enc}'.")
             return df

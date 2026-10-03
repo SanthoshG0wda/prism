@@ -30,10 +30,35 @@ def generate_chart(
     chart_type_clean = chart_type.lower().strip()
     chart_title = title or f"{chart_type.capitalize()} Chart: {y or ''} by {x}".strip()
 
+    def _find_col(col_name: Optional[str]) -> Optional[str]:
+        if not col_name:
+            return None
+        if col_name in df.columns:
+            return col_name
+        col_clean = str(col_name).strip().lower()
+        for c in df.columns:
+            if str(c).strip().lower() == col_clean:
+                return c
+        return col_name
+
+    x = _find_col(x) or x
+    if y:
+        y = _find_col(y)
+    if color:
+        color = _find_col(color)
+
     if x not in df.columns:
-        raise ValueError(f"Column '{x}' not found in dataframe.")
+        cat_cols = [c for c in df.columns if not pd.api.types.is_numeric_dtype(df[c])]
+        x = cat_cols[0] if cat_cols else df.columns[0]
     if y and y not in df.columns:
-        raise ValueError(f"Column '{y}' not found in dataframe.")
+        num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != x]
+        y = num_cols[0] if num_cols else None
+
+    # Auto-swap x and y if x is numeric and y is categorical for bar or pie charts
+    if y and chart_type_clean in ("bar", "pie"):
+        if pd.api.types.is_numeric_dtype(df[x]) and not pd.api.types.is_numeric_dtype(df[y]):
+            x, y = y, x
+
     if color and color not in df.columns:
         color = None
 

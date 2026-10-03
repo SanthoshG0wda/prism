@@ -228,7 +228,9 @@ def validate_sql_safety(
         if isinstance(col.this, exp.Star):
             continue  # `*` / `t.*` — tables already allowlisted
         cname = col.name
-        if not cname or not IDENT_RE.match(cname):
+        if catalog_cols is not None and cname and cname.lower() in catalog_cols:
+            pass
+        elif not cname or not IDENT_RE.match(cname):
             raise SQLValidationError(
                 f"Security violation: invalid column reference '{cname}'."
             )

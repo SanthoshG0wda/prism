@@ -428,19 +428,44 @@ class LLMService:
                 terms |= group
         return terms
 
-    @staticmethod
-    def _columns_of_kind(cols: list[str], kind: str) -> list[str]:
-        """Rough kind classification by column-name heuristics."""
+    @classmethod
+    def _extract_column_types(cls, prompt: str) -> dict[str, str]:
+        """Extract column name -> dtype from the schema markdown table."""
+        col_types: dict[str, str] = {}
+        for line in prompt.splitlines():
+            m = re.match(r"\s*\|\s*`([^`]+)`\s*\|\s*([^\|]+)\|", line)
+            if m:
+                cname = m.group(1).strip()
+                dtype = m.group(2).strip().lower()
+                col_types[cname] = dtype
+        return col_types
+
+    @classmethod
+    def _columns_of_kind(cls, cols: list[str], kind: str, col_types: dict[str, str] | None = None) -> list[str]:
+        """Kind classification by schema data types and name heuristics."""
+        col_types = col_types or {}
         date_hints = ("date", "time", "month", "year", "day", "created", "timestamp")
-        metric_hints = ("revenue", "sales", "profit", "amount", "total", "price",
-                        "value", "cost", "quantity", "units", "count", "score", "balance",
-                        "discount")
+        metric_hints = (
+            "revenue", "sales", "profit", "amount", "total", "price", "value", "cost",
+            "quantity", "units", "count", "score", "balance", "discount", "volume",
+            "salary", "population", "rate", "weight", "height", "age", "size", "speed",
+            "temp", "temperature", "humidity", "margin", "tax", "fee", "shares", "tenure"
+        )
         if kind == "date":
-            return [c for c in cols if any(h in c.lower() for h in date_hints)]
+            res = [c for c in cols if any(t in col_types.get(c, "") for t in ("date", "time"))
+                   or any(h in c.lower() for h in date_hints)]
+            return res or [c for c in cols if any(h in c.lower() for h in date_hints)]
         if kind == "metric":
+            num_cols = [c for c in cols if any(t in col_types.get(c, "") for t in ("int", "float", "double", "num", "decimal"))]
+            if num_cols:
+                ranked = [c for c in num_cols if any(h in c.lower() for h in metric_hints)]
+                return ranked if ranked else num_cols
             ranked = [c for c in cols if any(h in c.lower() for h in metric_hints)]
             return ranked if ranked else list(cols)
         if kind == "categorical":
+            cat_cols = [c for c in cols if not any(t in col_types.get(c, "") for t in ("int", "float", "double", "date", "time"))]
+            if cat_cols:
+                return cat_cols
             return [c for c in cols
                     if not any(h in c.lower() for h in date_hints)
                     and not any(h in c.lower() for h in metric_hints)]
@@ -495,6 +520,7 @@ class LLMService:
         CSVs (not just sales_data) resolve to valid group/metric/date columns.
         """
         schema_cols = self._extract_schema_columns(prompt)
+        col_types = self._extract_column_types(prompt)
         target_table = self._extract_target_table(prompt)
         table_cols = self._extract_table_columns(prompt, target_table) if target_table else []
         # Prefer target-table columns so plans stay executable against the active df.
@@ -510,7 +536,7 @@ class LLMService:
 
         def _pick(col_kind: str, fallback: str, synonyms: list[str] | None = None) -> str:
             import re as _re
-            kind_cols = self._columns_of_kind(schema_cols, col_kind) if col_kind != "any" else list(schema_cols)
+            kind_cols = self._columns_of_kind(schema_cols, col_kind, col_types) if col_kind != "any" else list(schema_cols)
             kind_set = {c.lower() for c in kind_cols}
             # 1. explicit mention in question wins, but must match the requested kind
             # (prevents picking group col 'region' as the numeric metric).

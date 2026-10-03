@@ -29,12 +29,22 @@ def profile_dataframe(df: pd.DataFrame, table_name: str) -> DatasetMetadata:
 
         # Sample values (up to 5 distinct non-null values)
         non_null_samples = series.dropna().unique()[:5].tolist()
-        # Convert non-serializable objects (like timestamps or numpy types) to python primitives
-        sample_values = [
-            val.isoformat() if hasattr(val, "isoformat")
-            else (val.item() if hasattr(val, "item") else val)
-            for val in non_null_samples
-        ]
+        # Convert non-serializable objects (like timestamps or numpy types) to python primitives, skipping inf/nan
+        sample_values = []
+        for val in non_null_samples:
+            if pd.isna(val):
+                continue
+            if hasattr(val, "isoformat"):
+                sample_values.append(val.isoformat())
+            elif hasattr(val, "item"):
+                item_val = val.item()
+                if isinstance(item_val, float) and (np.isnan(item_val) or np.isinf(item_val)):
+                    continue
+                sample_values.append(item_val)
+            elif isinstance(val, float) and (np.isnan(val) or np.isinf(val)):
+                continue
+            else:
+                sample_values.append(val)
 
         min_val = None
         max_val = None
@@ -42,7 +52,7 @@ def profile_dataframe(df: pd.DataFrame, table_name: str) -> DatasetMetadata:
         std_val = None
 
         if pd.api.types.is_numeric_dtype(series):
-            clean_series = series.dropna()
+            clean_series = series.replace([np.inf, -np.inf], np.nan).dropna()
             if not clean_series.empty:
                 min_val = float(clean_series.min())
                 max_val = float(clean_series.max())
