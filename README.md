@@ -1,8 +1,14 @@
-# AI-Powered Data Analyst
+# AI-Powered Data Analyst (Prism)
+
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/SanthoshG0wda/prism)
+[![Tests Passing](https://img.shields.io/badge/Tests-148%20Passing-success)](https://github.com/SanthoshG0wda/prism)
+[![Docker Support](https://img.shields.io/badge/Docker-Supported-blue?logo=docker)](https://github.com/SanthoshG0wda/prism#docker-deployment)
+[![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SanthoshG0wda/prism)
+
+> **Repository URL**: [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism)  
+> **Assignment**: Digital Back Office Software Engineer Intern Assignment
 
 A production-grade, conversational Data Analyst platform that enables users to upload single or multiple CSV files, ask questions in natural language, detect anomalies, view interactive visualizations, and inspect deterministic data insights.
-
-Built for the **Digital Back Office Software Engineer Intern Assignment**.
 
 ---
 
@@ -242,15 +248,87 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 ---
 
-## 🎬 Demo Video & Screenshots
+---
 
-Assignment deliverable: 10–30s demo video + screenshots (see `docs/demo_guide.md` for the recording script).
+## 📋 Deliverables & Submission Checklist
 
-| Placeholder | File to add |
-|---|---|
-| Demo video (mp4/link) | `docs/demo.mp4` or hosted URL here |
-| Chat Q&A screenshot | `docs/screenshots/chat.png` |
-| Dashboard screenshot | `docs/screenshots/dashboard.png` |
-| Anomaly + SQL trace screenshot | `docs/screenshots/anomalies.png` |
+| Deliverable | Status | Location / Artifact |
+|---|:---:|---|
+| **GitHub Repository** | ✅ Ready | [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism) |
+| **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
+| **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
+| **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
+| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (18s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
+| **UI Screenshots** | ✅ Ready | 4 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots) |
+| **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](file:///home/santhosh/dbo/backend/Dockerfile) & [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
+| **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](file:///home/santhosh/dbo/backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](file:///home/santhosh/dbo/backend/data/samples/customers.csv), [`sales_data_sample.csv`](file:///home/santhosh/dbo/sales_data_sample.csv) |
+| **Assumptions & Implementation Notes** | ✅ Ready | [Detailed Below](#-assumptions--implementation-notes) |
 
-> TODO: record with OBS / GNOME recorder following `docs/demo_guide.md`, then replace this table with embedded images + video link.
+---
+
+## 🎬 Application Demo Video
+
+An 18-second video walkthrough demonstrating the end-to-end user workflow: CSV ingestion, natural language questions, Plotly visualization, Executive Dashboard generation, and statistical anomaly detection.
+
+> **Video Formats Available:**  
+> - 📹 **MP4 Video (18s, H.264)**: [`docs/demo.mp4`](docs/demo.mp4)  
+> - 🌐 **WebM Video (18s, VP9)**: [`docs/demo.webm`](docs/demo.webm)  
+> - 📄 **Step-by-Step Script**: [`docs/demo_guide.md`](docs/demo_guide.md)
+
+### Animated Walkthrough Preview
+![AI Data Analyst Demo Walkthrough](docs/demo.gif)
+
+---
+
+## 📸 Key Features & Screenshots
+
+### 1. Clean Empty State & CSV File Ingestion
+*Drag-and-drop CSV upload, attachment preview chips, capability prompt suggestions, and explicit opt-in sample dataset loader.*
+
+![Empty State & CSV Ingestion](docs/screenshots/01-empty-state.png)
+
+---
+
+### 2. Conversational Analytics & Interactive Visualizations
+*Multi-turn natural language exploration, deterministic calculation grounding, dynamic ranking, and responsive Plotly bar/line/pie charts.*
+
+![Conversational Analytics & Plotly Visualization](docs/screenshots/02-chat-analysis.png)
+
+---
+
+### 3. Claude-Style Executive Dashboard Artifact
+*Instant comprehensive business overview featuring KPI metric cards, automated data quality completeness score, and segmented category breakdowns.*
+
+![Executive Dashboard Artifact](docs/screenshots/03-dashboard-artifact.png)
+
+---
+
+### 4. Statistical Anomaly Detection & Execution Transparency
+*Automated Tukey IQR outlier fences ($Q_1 - 1.5 \times \text{IQR}$, $Q_3 + 1.5 \times \text{IQR}$), flagged record explanations, and full copyable DuckDB SQL & Pandas execution drawers.*
+
+![Statistical Anomaly Detection & SQL Trace](docs/screenshots/04-anomalies-sql-trace.png)
+
+---
+
+## 📝 Assumptions & Implementation Notes
+
+### 1. Mathematical Grounding & Hallucination Prevention
+- **Core Principle**: The Large Language Model is strictly prohibited from computing numbers directly.
+- **Workflow**: All metrics, sums, averages, rankings, correlations, and fences are computed by isolated deterministic engines (`DuckDB`, `Pandas`, `SciPy`/numpy). The LLM functions solely as an intent parser, query planner, and insight synthesizer.
+
+### 2. Sandbox Execution & Code Safety
+- **No Arbitrary `exec()` / `eval()`**: The server never invokes Python `exec()` or `eval()` on user-supplied or LLM-generated code.
+- **SQL Guardrails**: DuckDB in-memory connections enforce strict read-only AST and regex filtering, blocking destructive commands (`DROP`, `DELETE`, `INSERT`, `UPDATE`, `ALTER`, `ATTACH`, `COPY`, `PRAGMA`).
+- **Audit Drawers**: Generated DuckDB SQL and equivalent Pandas code snippets are presented to the user for auditing, transparency, and reproducibility.
+
+### 3. Session Isolation & Multi-User Architecture
+- **State Management**: Every client browser session receives an isolated `X-Session-Id` header (persisted in `localStorage`).
+- **Persistence**: Session data, conversation histories, and uploaded datasets are persisted in a write-ahead-logged SQLite store (`backend/data/sessions.db`), allowing conversations to survive server reloads without leaking state between concurrent users.
+
+### 4. Schema-Agnostic Generic CSV Support
+- **Adaptive Profiling**: The system does not assume specific column names (such as `region` or `revenue`). It dynamically detects column data types, distinguishes categorical vs. numeric vs. temporal attributes, handles multiple date formats, and computes data completeness scores on arbitrary CSV uploads.
+- **Multi-File Joins**: When multiple datasets are registered, DuckDB joins tables across shared foreign keys.
+
+### 5. Dual-Mode Deployment: Live LLM + Heuristic Fallback
+- **Live Mode**: Seamless integration with NVIDIA NIM (`meta/muse-glimmer-30b`), OpenAI, Groq, or Ollama with SSE token streaming.
+- **Zero-Key Offline Guarantee**: If no API key is provided, the platform operates completely offline using a deterministic rule-based heuristic planner that maps questions to the correct tool contracts without failing.

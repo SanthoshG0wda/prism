@@ -3,11 +3,13 @@ Assignment-flow tests: sessions start EMPTY (no sample auto-loading).
 The user uploads CSVs first; analysis only runs on user-provided data.
 """
 
+import pytest
 import pandas as pd
 
 from src.agent.analyst import DataAnalystAgent
 from src.agent.sessions import SessionManager
 from src.services.llm import LLMService, LLMSettings
+from src.utils.sqlite_store import SQLiteSessionStore
 
 
 def make_agent(state):
@@ -15,22 +17,25 @@ def make_agent(state):
     return DataAnalystAgent(session_state=state, llm_service=llm)
 
 
-def test_fresh_session_starts_empty():
-    mgr = SessionManager()
+@pytest.fixture
+def mgr(tmp_path):
+    store = SQLiteSessionStore(str(tmp_path / "test_sessions.db"))
+    return SessionManager(store)
+
+
+def test_fresh_session_starts_empty(mgr):
     _, state = mgr.get_or_create("never-seen-before")
     assert state.datasets == {}
     assert state.active_dataset_name is None
     assert state.conversation_history == []
 
 
-def test_default_session_starts_empty():
-    mgr = SessionManager()
+def test_default_session_starts_empty(mgr):
     _, state = mgr.get_or_create(None)
     assert state.datasets == {}
 
 
-def test_sessions_are_isolated():
-    mgr = SessionManager()
+def test_sessions_are_isolated(mgr):
     _, a = mgr.get_or_create("user-a")
     _, b = mgr.get_or_create("user-b")
     a.register_dataset("mine", pd.DataFrame({"x": [1, 2]}))
@@ -38,8 +43,7 @@ def test_sessions_are_isolated():
     assert "mine" not in b.datasets
 
 
-def test_analytical_query_with_no_upload_asks_for_csv():
-    mgr = SessionManager()
+def test_analytical_query_with_no_upload_asks_for_csv(mgr):
     _, state = mgr.get_or_create("empty-user")
     resp = make_agent(state).run("Which region generated the highest revenue?")
     assert resp.tool_used == "dataset_required_notice"
@@ -47,9 +51,8 @@ def test_analytical_query_with_no_upload_asks_for_csv():
     assert "upload" in resp.answer.lower()
 
 
-def test_upload_then_analyze_flow():
+def test_upload_then_analyze_flow(mgr):
     """Simulates the assignment flow: upload CSV -> ask questions."""
-    mgr = SessionManager()
     _, state = mgr.get_or_create("uploader")
     # 1. Empty at first
     assert make_agent(state).run("Show monthly sales trends.").tool_used == "dataset_required_notice"
@@ -66,8 +69,7 @@ def test_upload_then_analyze_flow():
     assert resp.tool_result["records"][0]["region"] == "East"
 
 
-def test_greeting_omits_dataset_and_upload_state():
-    mgr = SessionManager()
+def test_greeting_omits_dataset_and_upload_state(mgr):
     _, state = mgr.get_or_create("fresh-greeter")
     resp = make_agent(state).run("hello")
     assert resp.tool_used == "conversational_greeting"
@@ -77,9 +79,8 @@ def test_greeting_omits_dataset_and_upload_state():
     assert len(resp.answer) < 300
 
 
-def test_capability_question_still_lists_capabilities():
+def test_capability_question_still_lists_capabilities(mgr):
     from src.agent.state import SessionState as _S
-    mgr = SessionManager()
     _, state = mgr.get_or_create("caps-asker")
     resp = make_agent(state).run("what can you do")
     assert resp.tool_used == "conversational_greeting"
