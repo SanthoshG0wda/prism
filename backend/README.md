@@ -1,6 +1,6 @@
 # AI Data Analyst - Backend
 
-High-performance analytical backend powered by FastAPI, DuckDB, Pandas, and NVIDIA NIM (`muse-glimmer`).
+High-performance analytical backend powered by FastAPI, DuckDB, Pandas, and NVIDIA NIM (`meta/muse-glimmer-30b`).
 
 ## Directory Structure
 - `src/agent/`: 7-step DataAnalystAgent orchestrator & session state.

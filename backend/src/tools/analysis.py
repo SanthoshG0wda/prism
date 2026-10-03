@@ -150,7 +150,10 @@ def time_series_trend(
         raise ValueError(f"Metric column '{metric_col}' not found.")
 
     temp_df = df.copy()
-    temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors="coerce")
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors="coerce")
     temp_df = temp_df.dropna(subset=[date_col])
 
     resampled = (

@@ -12,5 +12,7 @@ services:
       - APP_ENV=production
       - LOG_LEVEL=INFO
     volumes:
-      - ./backend/data:/app/data:ro
+      # Read-write: serves bundled sample CSVs AND the SQLite session store
+      # (data/sessions.db) so uploads + conversation context survive restarts.
+      - ./backend/data:/app/data
     restart: unless-stopped

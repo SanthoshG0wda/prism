@@ -20,6 +20,8 @@ import {
   LayoutDashboard,
   SquarePen,
   ArrowUpRight,
+  RotateCcw,
+  Square,
   X,
   UploadCloud,
 } from 'lucide-react';
@@ -36,6 +38,12 @@ export default function ChatArea({
   loading,
   onNewChat,
   onExportReport,
+  onLoadSamples,
+  onStop,
+  onRegenerate,
+  llmLive,
+  llmModel,
+  onOpenSettings,
   model,
   setModel,
   activeArtifact,
@@ -51,6 +59,16 @@ export default function ChatArea({
   const [likedMap, setLikedMap] = useState({});
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Index of the latest finished assistant message (regenerate target).
+  let lastAssistantIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'assistant' && !messages[i].streaming) {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+  const hasStreamingMsg = messages.some((m) => m.streaming);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -145,10 +163,10 @@ export default function ChatArea({
   ];
 
   const availableModels = [
-    { id: 'muse-glimmer', name: 'Muse Glimmer (Agentic 30B)', badge: 'Default' },
-    { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct', badge: 'High Reasoning' },
-    { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B', badge: 'Analytical' },
-    { id: 'meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B Instruct', badge: 'Fast' },
+    { id: 'meta/muse-glimmer-30b', name: 'Reasoning 30B', badge: 'Default' },
+    { id: 'meta/llama-3.3-70b-instruct', name: 'Instruct 70B', badge: 'High Reasoning' },
+    { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Analytical 70B', badge: 'Analytical' },
+    { id: 'meta/llama-3.1-8b-instruct', name: 'Fast 8B', badge: 'Fast' },
   ];
 
   return (
@@ -273,11 +291,40 @@ export default function ChatArea({
                 if (!showModelMenu) e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <span>ChatGPT</span>
+              <span>Prism</span>
               <span style={{ color: '#737373', fontSize: '0.82rem', fontWeight: 400 }}>
-                • {availableModels.find((m) => m.id === model)?.name.split(' ')[0] || 'Muse Glimmer'}
+                • {availableModels.find((m) => m.id === model)?.name || 'Prism'}
               </span>
               <ChevronDown size={15} color="#b4b4b4" />
+            </button>
+
+            {/* Live LLM vs offline-heuristic indicator */}
+            <button
+              onClick={() => !llmLive && onOpenSettings && onOpenSettings()}
+              title={llmLive
+                ? 'Live LLM active'
+                : 'Offline heuristic mode — click to add your API key in Settings'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '14px',
+                backgroundColor: llmLive ? 'rgba(16, 163, 127, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                border: `1px solid ${llmLive ? 'rgba(16, 163, 127, 0.45)' : 'rgba(245, 158, 11, 0.45)'}`,
+                color: llmLive ? '#10a37f' : '#f59e0b',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                cursor: llmLive ? 'default' : 'pointer',
+              }}
+            >
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                backgroundColor: llmLive ? '#10a37f' : '#f59e0b',
+              }} />
+              <span>{llmLive ? 'Live LLM' : 'Offline — add key'}</span>
             </button>
 
             {/* Model Dropdown Menu */}
@@ -479,9 +526,35 @@ export default function ChatArea({
               }}>
                 What can I help with?
               </h1>
-              <p style={{ fontSize: '0.95rem', color: '#737373', marginBottom: '36px' }}>
+              <p style={{ fontSize: '0.95rem', color: '#737373', marginBottom: '20px' }}>
                 Upload your CSV dataset and request on-demand analytical dashboards & insights.
               </p>
+
+              {/* Explicit opt-in demo data (sessions start empty; never auto-loaded) */}
+              {catalog && (catalog.tables || []).length === 0 && onLoadSamples && (
+                <button
+                  onClick={onLoadSamples}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '9px 18px',
+                    borderRadius: '20px',
+                    backgroundColor: 'rgba(16, 163, 127, 0.12)',
+                    border: '1px solid rgba(16, 163, 127, 0.45)',
+                    color: '#10a37f',
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    marginBottom: '36px',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(16, 163, 127, 0.22)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(16, 163, 127, 0.12)')}
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Or load sample datasets to try it out</span>
+                </button>
+              )}
 
               {/* 4 Prompt Suggestion Cards */}
               <div style={{
@@ -607,6 +680,24 @@ export default function ChatArea({
                   </div>
 
                   <div style={{ flexGrow: 1, minWidth: 0 }}>
+                    {/* Live streaming status (ChatGPT-style) */}
+                    {msg.streaming && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#b4b4b4',
+                        fontSize: '0.82rem',
+                        fontWeight: 500,
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        backgroundColor: '#262626',
+                        marginBottom: '10px',
+                      }}>
+                        <Sparkles size={13} color="#10a37f" />
+                        <span className="pulse-thinking">{msg.status || 'Thinking…'}</span>
+                      </div>
+                    )}
                     {/* ChatGPT o1/o3-style Thinking Accordion (shown for analytical queries) */}
                     {msg.steps_explanation &&
                       msg.steps_explanation.length > 0 &&
@@ -667,6 +758,17 @@ export default function ChatArea({
                       wordBreak: 'break-word',
                     }}>
                       <MarkdownRenderer content={msg.content} />
+                      {msg.streaming && (
+                        <span style={{
+                          display: 'inline-block',
+                          width: '8px',
+                          height: '1.05em',
+                          backgroundColor: '#ececec',
+                          marginLeft: '3px',
+                          verticalAlign: 'text-bottom',
+                          animation: 'blink 1s step-end infinite',
+                        }} />
+                      )}
                     </div>
 
                     {/* Claude-style Artifact Card (When Dashboard artifact is generated) */}
@@ -948,7 +1050,8 @@ export default function ChatArea({
                       </div>
                     )}
 
-                    {/* ChatGPT Response Action Icons Bar */}
+                    {/* ChatGPT Response Action Icons Bar (after streaming finishes) */}
+                    {!msg.streaming && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
                       <button
                         onClick={() => copyMessage(msg.content, idx)}
@@ -1003,15 +1106,37 @@ export default function ChatArea({
                       >
                         <ThumbsDown size={15} />
                       </button>
+
+                      {/* Regenerate (latest finished answer only, like ChatGPT) */}
+                      {idx === lastAssistantIdx && !loading && onRegenerate && (
+                        <button
+                          onClick={onRegenerate}
+                          title="Regenerate response"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#737373',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = '#ececec')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = '#737373')}
+                        >
+                          <RotateCcw size={15} />
+                        </button>
+                      )}
                     </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
           ))}
 
-          {/* Assistant Loading State */}
-          {loading && (
+          {/* Assistant Loading State (only before first streamed token arrives) */}
+          {loading && !hasStreamingMsg && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 0' }}>
               <div style={{
                 width: '30px',
@@ -1027,7 +1152,7 @@ export default function ChatArea({
               </div>
               <div style={{ color: '#b4b4b4', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="pulse-thinking" style={{ color: '#10a37f' }}>
-                  Analyzing dataset via DuckDB & {model.split('/').pop()}...
+                  Analyzing dataset via DuckDB engine...
                 </span>
               </div>
             </div>
@@ -1181,7 +1306,7 @@ export default function ChatArea({
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={attachedFiles.length > 0 ? "Ask a question about the attached file(s)..." : `Message AI Data Analyst... (${activeDataset || 'ready'})`}
+                placeholder={attachedFiles.length > 0 ? "Ask a question about the attached file(s)..." : `Message Prism... (${activeDataset || 'ready'})`}
                 disabled={loading}
                 style={{
                   flexGrow: 1,
@@ -1193,7 +1318,28 @@ export default function ChatArea({
                 }}
               />
 
-              {/* Circular Send Button */}
+              {/* Circular Send / Stop Button (ChatGPT style: square while generating) */}
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={() => onStop && onStop()}
+                  title="Stop generating"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '50%',
+                    border: '1px solid #4d4d4d',
+                    backgroundColor: '#212121',
+                    color: '#ececec',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Square size={14} fill="currentColor" />
+                </button>
+              ) : (
               <button
                 type="submit"
                 disabled={(!input.trim() && attachedFiles.length === 0) || loading}
@@ -1213,6 +1359,7 @@ export default function ChatArea({
               >
                 <ArrowUp size={18} />
               </button>
+              )}
             </div>
           </div>
         </form>

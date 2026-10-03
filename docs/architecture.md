@@ -14,15 +14,18 @@ Unlike naive LLM wrappers that ask language models to calculate numbers directly
 
 ```mermaid
 flowchart TD
-    User([User / Browser]) <--> UI[Streamlit UI Layer\napp.py]
-    
-    subgraph UI & State
-        UI <--> State[SessionState\nsrc/agent/state.py]
+    User([User / Browser]) <--> UI[React SPA\nfrontend/src/App.jsx]
+
+    UI <--> API[FastAPI Server\nbackend/server.py]
+
+    subgraph Session & State
+        API <--> Sessions[SessionManager\nsrc/agent/sessions.py\nper X-Session-Id]
+        Sessions --> State[SessionState\nsrc/agent/state.py]
         State --> Catalog[(DuckDB In-Memory\n& Pandas DataFrames)]
     end
 
     subgraph Agent Layer
-        UI --> Agent[DataAnalystAgent\nsrc/agent/analyst.py]
+        API --> Agent[DataAnalystAgent\nsrc/agent/analyst.py]
         Agent <--> Prompts[Prompts Engine\nsrc/agent/prompts.py]
         Agent <--> LLM[LLM Service\nsrc/services/llm.py]
     end
@@ -34,6 +37,7 @@ flowchart TD
         Registry --> AnalysisTool[Analytics & Aggregation\nsrc/tools/analysis.py]
         Registry --> ChartTool[Plotly Chart Engine\nsrc/tools/charts.py]
         Registry --> QualityTool[Quality & Profiling\nsrc/tools/profiling.py]
+        Registry --> DashboardTool[Generic Dashboard Builder\nsrc/tools/dashboard.py]
     end
 
     Catalog <--> SQLTool
@@ -41,7 +45,10 @@ flowchart TD
     Catalog <--> AnalysisTool
     Catalog <--> ChartTool
     Catalog <--> QualityTool
+    Catalog <--> DashboardTool
 ```
+
+> Legacy Streamlit UI (`backend/app.py`) is deprecated; production UI is the React SPA.
 
 ---
 

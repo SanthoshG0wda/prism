@@ -50,21 +50,28 @@ Built for the **Digital Back Office Software Engineer Intern Assignment**.
    - Runs seamlessly even without an external paid API key using built-in deterministic heuristic planning.
    - Fully compatible with OpenAI, Gemini (via OpenAI compatibility endpoint), Groq, and Ollama.
 
+9. **ChatGPT-Style Streaming UX**:
+   - `POST /api/chat-stream` streams live status, answer tokens (NIM `stream:true`), and a final result event over SSE.
+   - Stop-generation button, regenerate-response button, chat search, persisted model/key settings, and an Executive Dashboard artifact panel.
+
 ---
 
 ## 🏗️ Architecture & Component Separation
 
 ```mermaid
 flowchart TD
-    User([User / Browser]) <--> UI[Streamlit UI Layer\napp.py]
-    
-    subgraph UI & State
-        UI <--> State[SessionState\nsrc/agent/state.py]
+    User([User / Browser]) <--> UI[React SPA\nfrontend/src/App.jsx]
+
+    UI <--> API[FastAPI Server\nbackend/server.py]
+
+    subgraph Session & State
+        API <--> Sessions[SessionManager\nsrc/agent/sessions.py\nper X-Session-Id]
+        Sessions --> State[SessionState\nsrc/agent/state.py]
         State --> Catalog[(DuckDB In-Memory\n& Pandas DataFrames)]
     end
 
     subgraph Agent Layer
-        UI --> Agent[DataAnalystAgent\nsrc/agent/analyst.py]
+        API --> Agent[DataAnalystAgent\nsrc/agent/analyst.py]
         Agent <--> Prompts[Prompts Engine\nsrc/agent/prompts.py]
         Agent <--> LLM[LLM Service\nsrc/services/llm.py]
     end
@@ -76,6 +83,7 @@ flowchart TD
         Registry --> AnalysisTool[Analytics & Aggregation\nsrc/tools/analysis.py]
         Registry --> ChartTool[Plotly Chart Engine\nsrc/tools/charts.py]
         Registry --> QualityTool[Quality & Profiling\nsrc/tools/profiling.py]
+        Registry --> DashboardTool[Generic Dashboard Builder\nsrc/tools/dashboard.py]
     end
 
     Catalog <--> SQLTool
@@ -83,10 +91,15 @@ flowchart TD
     Catalog <--> AnalysisTool
     Catalog <--> ChartTool
     Catalog <--> QualityTool
+    Catalog <--> DashboardTool
 ```
 
+> Note: The legacy Streamlit UI (`backend/app.py`) is deprecated and not part of the
+> served stack. The production UI is the React SPA served by FastAPI.
+
 ### Strict Layer Decoupling:
-- **UI (`app.py`)**: Responsible only for user input rendering, layout, and visualization display. Zero business logic.
+- **UI (`frontend/src/`)**: React SPA — input rendering, layout, visualization display. Zero business logic.
+- **API (`backend/server.py`)**: FastAPI REST + static SPA serving + per-session routing via `X-Session-Id` (`src/agent/sessions.py`).
 - **Agent (`src/agent/`)**: Orchestrates the 7-step analytical lifecycle. Manages context, prompts, and tool dispatching.
 - **Tools (`src/tools/`)**: Isolated deterministic calculation engines with strict typed contracts.
 - **Services (`src/services/`)**: LLM transport and JSON schema enforcement.
@@ -99,7 +112,7 @@ ai-data-analyst/
 │   ├── src/
 │   │   ├── agent/              # 7-step DataAnalystAgent orchestrator & session state
 │   │   ├── tools/              # Deterministic DuckDB, IQR/Z-score, charts & profiling
-│   │   ├── services/           # NVIDIA NIM (muse-glimmer) & LLM integration
+│   │   ├── services/           # NVIDIA NIM (meta/muse-glimmer-30b) & LLM integration
 │   │   ├── models/             # Pydantic v2 schemas & typed contracts
 │   │   └── utils/              # Structured logging and evaluation benchmarks
 │   ├── data/samples/           # Sample CSVs (sales_data.csv, customers.csv)
@@ -128,17 +141,29 @@ ai-data-analyst/
 ## 🚀 Getting Started with React & uv
 
 The project is neatly divided into two dedicated folders:
-- **`backend/`**: FastAPI, DuckDB, Pandas, NVIDIA NIM (`muse-glimmer`), and Pytest test suite managed via **`uv`**.
+- **`backend/`**: FastAPI, DuckDB, Pandas, NVIDIA NIM (`meta/muse-glimmer-30b`), and Pytest test suite managed via **`uv`**.
 - **`frontend/`**: Vite + React.js SPA featuring Gemini/ChatGPT aesthetics, Plotly chart visualizer, and dynamic model selector.
 
 ### Prerequisites
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) installed
 - Node.js 18+ & npm
 - Docker (optional, for containerized run)
+- A free NVIDIA NIM API key (`nvapi-...` from build.nvidia.com) for live LLM answers —
+  without it the app runs in offline heuristic mode (deterministic tools only).
 
 ### Running the Application
 
-1. **Setup & Run Backend:**
+1. **Configure the LLM (recommended):**
+   ```bash
+   cd backend
+   cp .env.example .env
+   # edit .env and set NVIDIA_API_KEY=nvapi-your-key-here
+   # (LLM_MODEL defaults to meta/muse-glimmer-30b)
+   ```
+   Alternatively paste the key in the app under **Settings (gear icon) → API Key**
+   — it is stored in your browser and sent per request.
+
+2. **Setup & Run Backend:**
    ```bash
    cd backend
    uv sync
@@ -178,17 +203,6 @@ uv run pytest tests/ -v
 
 ---
 
-## 🧪 Running Tests with uv
-
-From the `backend/` directory:
-
-```bash
-cd backend
-uv run pytest tests/ -v
-```
-
----
-
 ## 🐳 Docker Deployment
 
 Run the complete multi-stage container (builds React + serves FastAPI):
@@ -202,7 +216,8 @@ The app will be available immediately at **`http://localhost:8000`**.
 
 ## 💡 Example Analytical Queries
 
-Try these questions using the pre-loaded sample datasets:
+Try these questions after uploading a CSV (or click **"load sample datasets"**
+on the empty chat screen to load the bundled `sales_data` / `customers` samples):
 
 | Analysis Type | Example Question | Tool Executed |
 |---|---|---|
@@ -220,5 +235,22 @@ Try these questions using the pre-loaded sample datasets:
 
 1. **Deterministic Grounding**: The LLM is never permitted to produce numerical outputs unassisted. All numbers shown in answers originate directly from verified tool outputs.
 2. **Code Execution Safety**: Generated Pandas or SQL code is shown for developer transparency and auditing; arbitrary user or LLM code is **never passed to `exec()` or `eval()`**.
-3. **DuckDB Isolation**: In-memory DuckDB connections run with read-only validation against destructive keywords (`DROP`, `DELETE`, `ALTER`, `ATTACH`).
+3. **DuckDB Isolation**: In-memory DuckDB connections run with read-only validation against destructive keywords (`DROP`, `DELETE`, `ALTER`, `ATTACH`). Each `X-Session-Id` gets its own isolated DuckDB connection via `SessionManager`.
 4. **Resilience**: The system gracefully falls back to statistical summaries if an external LLM request times out.
+5. **Multi-user sessions**: Send `X-Session-Id` header (React client auto-generates + persists one in `localStorage`). Requests without it share the backwards-compatible `"default"` session. `POST /api/session` mints a fresh id.
+6. **Generic CSV support**: Dashboards (`src/tools/dashboard.py`), intent routing (`analyst.py`), and the offline heuristic planner (`services/llm.py`) infer categorical/numeric/date roles from the actual schema — no `region`/`revenue` assumption.
+
+---
+
+## 🎬 Demo Video & Screenshots
+
+Assignment deliverable: 10–30s demo video + screenshots (see `docs/demo_guide.md` for the recording script).
+
+| Placeholder | File to add |
+|---|---|
+| Demo video (mp4/link) | `docs/demo.mp4` or hosted URL here |
+| Chat Q&A screenshot | `docs/screenshots/chat.png` |
+| Dashboard screenshot | `docs/screenshots/dashboard.png` |
+| Anomaly + SQL trace screenshot | `docs/screenshots/anomalies.png` |
+
+> TODO: record with OBS / GNOME recorder following `docs/demo_guide.md`, then replace this table with embedded images + video link.

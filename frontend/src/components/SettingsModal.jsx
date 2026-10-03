@@ -10,6 +10,8 @@ export default function SettingsModal({
   setApiKey,
   model,
   setModel,
+  llmTest,
+  onTestConnection,
   onClearAllChats,
 }) {
   if (!isOpen) return null;
@@ -120,7 +122,7 @@ export default function SettingsModal({
                 outline: 'none',
               }}
             >
-              <option value="muse-glimmer">Muse Glimmer (Agentic 30B - Default)</option>
+              <option value="meta/muse-glimmer-30b">Muse Glimmer 30B (Default)</option>
               <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct</option>
               <option value="nvidia/llama-3.1-nemotron-70b-instruct">nvidia/llama-3.1-nemotron-70b</option>
               <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct</option>
@@ -153,6 +155,38 @@ export default function SettingsModal({
             <span style={{ fontSize: '0.75rem', color: '#737373', display: 'block', marginTop: '4px' }}>
               Get a free 1000-credit key at build.nvidia.com
             </span>
+            {/* Connection self-test: validates key + model in seconds */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={onTestConnection}
+                disabled={!onTestConnection || (llmTest && llmTest.state === 'testing')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid #10a37f',
+                  color: '#10a37f',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  opacity: !onTestConnection || (llmTest && llmTest.state === 'testing') ? 0.5 : 1,
+                }}
+              >
+                <span>{llmTest && llmTest.state === 'testing' ? 'Testing…' : 'Test connection'}</span>
+              </button>
+              {llmTest && llmTest.state !== 'idle' && (
+                <span style={{
+                  fontSize: '0.78rem',
+                  color: llmTest.state === 'ok' ? '#10a37f' : llmTest.state === 'error' ? '#ef4444' : '#b4b4b4',
+                }}>
+                  {llmTest.state === 'ok' ? '✓ ' : llmTest.state === 'error' ? '✗ ' : ''}
+                  {llmTest.message}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Clear All Chats */}

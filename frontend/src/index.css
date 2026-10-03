@@ -111,6 +111,12 @@ pre, code {
   animation: subtle-pulse 1.8s infinite ease-in-out;
 }
 
+/* Blinking streaming cursor (ChatGPT-style) */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* Markdown Content Styling */
 .markdown-content {
   font-size: 0.96rem;

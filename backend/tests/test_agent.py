@@ -65,7 +65,11 @@ def test_agent_conversational_concept_query(agent_with_data):
 def test_agent_special_abilities_query(agent_with_data):
     response = agent_with_data.run("What are your special abilities?")
     assert response.tool_used == "conversational_greeting"
-    assert "Special Analytical Superpowers" in response.answer
+    # Offline deterministic greeting: compact capabilities + live dataset facts.
+    assert "capabilities" in response.answer.lower()
+    assert "No dataset" not in response.answer
+    assert "Attach a CSV" not in response.answer
+    assert "Special Analytical Superpowers" not in response.answer
 
 
 def test_agent_conversational_when_no_data():

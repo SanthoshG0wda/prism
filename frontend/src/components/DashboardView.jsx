@@ -27,8 +27,10 @@ export default function DashboardView({ activeDataset, initialData }) {
   const fetchDashboard = async () => {
     setLoading(true);
     try {
+      let sid = null;
+      try { sid = localStorage.getItem('ai_data_analyst_session_id'); } catch { sid = null; }
       const url = activeDataset ? `/api/dashboard?table_name=${encodeURIComponent(activeDataset)}` : '/api/dashboard';
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: sid ? { 'X-Session-Id': sid } : {} });
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -127,27 +129,27 @@ export default function DashboardView({ activeDataset, initialData }) {
 
         <div style={{ backgroundColor: '#1e1f20', border: '1px solid #282a2c', borderRadius: '16px', padding: '18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9aa0a6', fontSize: '0.82rem', marginBottom: '6px' }}>
-            <span>TOTAL REVENUE</span>
+            <span>{(kpis.primary_metric || 'PRIMARY METRIC').toUpperCase()}</span>
             <DollarSign size={16} color="#c58af9" />
           </div>
           <div style={{ fontSize: '1.7rem', fontWeight: 700, color: '#c58af9' }}>
-            ${kpis.total_revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${(kpis.primary_metric_total ?? kpis.total_revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#9aa0a6', marginTop: '4px' }}>
-            Cumulative revenue metric
+            Cumulative {(kpis.primary_metric || 'metric')}
           </div>
         </div>
 
         <div style={{ backgroundColor: '#1e1f20', border: '1px solid #282a2c', borderRadius: '16px', padding: '18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9aa0a6', fontSize: '0.82rem', marginBottom: '6px' }}>
-            <span>TOTAL PROFIT</span>
+            <span>{(kpis.secondary_metric || 'SECONDARY METRIC').toUpperCase()}</span>
             <TrendingUp size={16} color="#38bdf8" />
           </div>
           <div style={{ fontSize: '1.7rem', fontWeight: 700, color: '#38bdf8' }}>
-            ${kpis.total_profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${(kpis.secondary_metric_total ?? kpis.total_profit ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#9aa0a6', marginTop: '4px' }}>
-            Net earnings aggregated
+            {(kpis.secondary_metric || 'Secondary')} aggregated
           </div>
         </div>
       </div>
@@ -169,7 +171,7 @@ export default function DashboardView({ activeDataset, initialData }) {
                     <thead>
                       <tr style={{ borderBottom: '1px solid #3c4043', textAlign: 'left', color: '#9aa0a6' }}>
                         <th style={{ padding: '8px' }}>{c.x_key.toUpperCase()}</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>REVENUE ($)</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>{c.y_key.toUpperCase()}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -177,7 +179,7 @@ export default function DashboardView({ activeDataset, initialData }) {
                         <tr key={rIdx} style={{ borderBottom: '1px solid #282a2c' }}>
                           <td style={{ padding: '8px', color: '#f1f3f4' }}>{row[c.x_key]}</td>
                           <td style={{ padding: '8px', textAlign: 'right', color: '#8ab4f8', fontWeight: 500 }}>
-                            ${Number(row[c.y_key]).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            {typeof row[c.y_key] === 'number' ? Number(row[c.y_key]).toLocaleString(undefined, { minimumFractionDigits: 2 }) : String(row[c.y_key] ?? '')}
                           </td>
                         </tr>
                       ))}

@@ -1,10 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ArtifactPanel from './components/ArtifactPanel';
 import SettingsModal from './components/SettingsModal';
 
 const STORAGE_KEY = 'ai_data_analyst_chats_v1';
+const SESSION_KEY = 'ai_data_analyst_session_id';
+const SETTINGS_KEY = 'ai_data_analyst_settings_v1';
+const DEFAULT_MODEL = 'meta/muse-glimmer-30b';
+
+function loadStoredSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        provider: parsed.provider || 'nvidia',
+        apiKey: parsed.apiKey || '',
+        model: parsed.model || DEFAULT_MODEL,
+      };
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return { provider: 'nvidia', apiKey: '', model: DEFAULT_MODEL };
+}
+
+function getSessionId() {
+  let sid = null;
+  try {
+    sid = localStorage.getItem(SESSION_KEY);
+  } catch {
+    sid = null;
+  }
+  if (!sid) {
+    sid = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try {
+      localStorage.setItem(SESSION_KEY, sid);
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  return sid;
+}
+
+function apiFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}), 'X-Session-Id': getSessionId() };
+  return fetch(url, { ...options, headers });
+}
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -17,14 +60,61 @@ export default function App() {
   const [isArtifactOpen, setIsArtifactOpen] = useState(false);
   const [isArtifactMaximized, setIsArtifactMaximized] = useState(false);
 
-  // AI settings
-  const [provider, setProvider] = useState('nvidia');
-  const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('muse-glimmer');
+  // AI settings (persisted so the key/model survive refresh)
+  const [provider, setProvider] = useState(() => loadStoredSettings().provider);
+  const [apiKey, setApiKey] = useState(() => loadStoredSettings().apiKey);
+  const [model, setModel] = useState(() => loadStoredSettings().model);
+
+  // Server-side LLM status (env key). Live = server key OR key typed in Settings.
+  const [serverLlmLive, setServerLlmLive] = useState(false);
+  const [serverLlmModel, setServerLlmModel] = useState(DEFAULT_MODEL);
+  const llmLive = serverLlmLive || apiKey.trim().length > 5;
+
+  // Key/endpoint self-test state (Settings → Test connection).
+  const [llmTest, setLlmTest] = useState({ state: 'idle', message: '' });
+
+  const handleTestConnection = async () => {
+    setLlmTest({ state: 'testing', message: 'Contacting provider…' });
+    try {
+      const res = await apiFetch('/api/llm-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          api_key: apiKey,
+          model,
+          base_url:
+            provider === 'nvidia'
+              ? 'https://integrate.api.nvidia.com/v1'
+              : 'https://api.openai.com/v1',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Request failed (${res.status})`);
+      }
+      setLlmTest({
+        state: 'ok',
+        message: `Key valid, connected (${data.models_count} models). ${data.model_listed ? `${data.model} is available.` : `${data.model} is NOT listed for this key.`}`,
+      });
+      fetchLlmStatus();
+    } catch (err) {
+      setLlmTest({ state: 'error', message: err.message });
+    }
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ provider, apiKey, model }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [provider, apiKey, model]);
 
   // Multi-chat sessions state
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
+  const abortRef = useRef(null);
 
   // Initialize or load chat sessions from localStorage
   useEffect(() => {
@@ -47,13 +137,14 @@ export default function App() {
       }
     }
 
-    // Default sample chat if none exist
+    // Default empty chat if none exist (no sample data assumed;
+    // sessions start empty per the assignment - the user uploads CSVs).
     const defaultChat = {
       id: 'chat_' + Date.now(),
-      title: 'Top 5 Customers by Revenue',
+      title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
-      activeDataset: 'sales_data',
+      activeDataset: null,
     };
     setChats([defaultChat]);
     setActiveChatId(defaultChat.id);
@@ -66,14 +157,28 @@ export default function App() {
     }
   }, [chats]);
 
-  // Fetch data catalog on mount
+  // Fetch data catalog + server LLM status on mount
   useEffect(() => {
     fetchCatalog();
+    fetchLlmStatus();
   }, []);
+
+  const fetchLlmStatus = async () => {
+    try {
+      const res = await apiFetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setServerLlmLive(!!data.llm_live);
+        if (data.llm_model) setServerLlmModel(data.llm_model);
+      }
+    } catch (err) {
+      console.error('Failed to fetch LLM status:', err);
+    }
+  };
 
   const fetchCatalog = async () => {
     try {
-      const res = await fetch('/api/catalog');
+      const res = await apiFetch('/api/catalog');
       if (res.ok) {
         const data = await res.json();
         setCatalog(data);
@@ -88,7 +193,7 @@ export default function App() {
 
   const handleSelectDataset = async (name) => {
     try {
-      const res = await fetch('/api/select-dataset', {
+      const res = await apiFetch('/api/select-dataset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dataset_name: name }),
@@ -112,7 +217,7 @@ export default function App() {
       title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
-      activeDataset: catalog.active_dataset || 'sales_data',
+      activeDataset: catalog.active_dataset || null,
     };
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
@@ -147,7 +252,7 @@ export default function App() {
             title: 'New conversation',
             createdAt: Date.now(),
             messages: [],
-            activeDataset: catalog.active_dataset || 'sales_data',
+            activeDataset: catalog.active_dataset || null,
           };
           remaining.push(fresh);
           setActiveChatId(fresh.id);
@@ -158,18 +263,34 @@ export default function App() {
   };
 
   const handleClearAllChats = () => {
+    // Delete the server session (datasets + SQLite history), then rotate id.
+    // Otherwise old uploads would resurface under the stored X-Session-Id.
+    try {
+      apiFetch('/api/session', { method: 'DELETE' }).catch(() => {});
+    } catch {
+      /* network unavailable */
+    }
     localStorage.removeItem(STORAGE_KEY);
+    // Rotate the server session too: otherwise previously uploaded (or sample)
+    // datasets persist server-side under the stored X-Session-Id and the next
+    // "hello" would still list them. A fresh id => truly empty session.
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* storage unavailable */
+    }
     const fresh = {
       id: 'chat_' + Date.now(),
       title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
-      activeDataset: catalog.active_dataset || 'sales_data',
+      activeDataset: null,
     };
     setChats([fresh]);
     setActiveChatId(fresh.id);
     setIsArtifactOpen(false);
     setActiveArtifact(null);
+    fetchCatalog();
   };
 
   const handleSendMessage = async (queryText, files = []) => {
@@ -188,7 +309,7 @@ export default function App() {
       }
 
       try {
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await apiFetch('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -256,83 +377,191 @@ export default function App() {
     );
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: effectiveQuery,
-          provider: provider,
-          api_key: apiKey,
-          model: model,
-          base_url:
-            provider === 'nvidia'
-              ? 'https://integrate.api.nvidia.com/v1'
-              : 'https://api.openai.com/v1',
-        }),
-      });
-
-      if (res.ok) {
-        const agentResponse = await res.json();
-        const assistantMsg = {
-          role: 'assistant',
-          content: agentResponse.answer,
-          steps_explanation: agentResponse.steps_explanation,
-          tool_used: agentResponse.tool_used,
-          tool_result: agentResponse.tool_result,
-          generated_sql: agentResponse.generated_sql,
-          generated_pandas_code: agentResponse.generated_pandas_code,
-          chart_spec: agentResponse.chart_spec,
-          anomalies: agentResponse.anomalies,
-          artifact: agentResponse.artifact || null,
-          execution_time_ms: agentResponse.execution_time_ms,
-        };
-
-        // If the response generated a Claude-style artifact, open the side panel
-        if (agentResponse.artifact) {
-          setActiveArtifact(agentResponse.artifact);
-          setIsArtifactOpen(true);
-        }
-
-        setChats((prev) =>
-          prev.map((c) =>
-            c.id === activeChatId
-              ? { ...c, messages: [...c.messages, assistantMsg] }
-              : c
-          )
-        );
-      } else {
-        const errText = await res.text();
-        const errorMsg = {
-          role: 'assistant',
-          content: `⚠️ Error executing request: ${errText}`,
-        };
-        setChats((prev) =>
-          prev.map((c) =>
-            c.id === activeChatId
-              ? { ...c, messages: [...c.messages, errorMsg] }
-              : c
-          )
-        );
-      }
-    } catch (err) {
-      const errorMsg = {
-        role: 'assistant',
-        content: `⚠️ Network error communicating with backend: ${err.message}`,
-      };
-      setChats((prev) =>
-        prev.map((c) =>
-          c.id === activeChatId
-            ? { ...c, messages: [...c.messages, errorMsg] }
-            : c
-        )
-      );
+      await streamAnswer(activeChatId, effectiveQuery);
     } finally {
       setLoading(false);
     }
   };
 
+  const patchMessage = (chatId, msgId, patch) => {
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === chatId
+          ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? { ...m, ...patch } : m)) }
+          : c
+      )
+    );
+  };
+
+  const replaceMessage = (chatId, msgId, msg) => {
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === chatId
+          ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? msg : m)) }
+          : c
+      )
+    );
+  };
+
+  // ChatGPT-style streaming answer over SSE (/api/chat-stream).
+  const streamAnswer = async (chatId, query) => {
+    const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const placeholder = {
+      id: msgId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      status: 'Connecting…',
+      steps_explanation: [],
+    };
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, messages: [...c.messages, placeholder] } : c))
+    );
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    let acc = '';
+    let status = 'Thinking…';
+
+    try {
+      const res = await apiFetch('/api/chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          provider,
+          api_key: apiKey,
+          model,
+          base_url:
+            provider === 'nvidia'
+              ? 'https://integrate.api.nvidia.com/v1'
+              : 'https://api.openai.com/v1',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => res.statusText);
+        throw new Error(errText || `Request failed (${res.status})`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          let evt;
+          try {
+            evt = JSON.parse(line.slice(5));
+          } catch {
+            continue;
+          }
+          if (evt.type === 'token') {
+            acc += evt.text || '';
+            patchMessage(chatId, msgId, { content: acc, status });
+          } else if (evt.type === 'status') {
+            status = evt.text || status;
+            patchMessage(chatId, msgId, { status });
+          } else if (evt.type === 'result') {
+            const r = evt.response;
+            if (r.artifact) {
+              setActiveArtifact(r.artifact);
+              setIsArtifactOpen(true);
+            }
+            replaceMessage(chatId, msgId, {
+              id: msgId,
+              role: 'assistant',
+              content: r.answer,
+              steps_explanation: r.steps_explanation,
+              tool_used: r.tool_used,
+              tool_result: r.tool_result,
+              generated_sql: r.generated_sql,
+              generated_pandas_code: r.generated_pandas_code,
+              chart_spec: r.chart_spec,
+              anomalies: r.anomalies,
+              artifact: r.artifact || null,
+              execution_time_ms: r.execution_time_ms,
+              streaming: false,
+            });
+            return;
+          } else if (evt.type === 'error') {
+            throw new Error(evt.message || 'Stream failed');
+          }
+        }
+      }
+      // Stream closed without a result event: keep partial text.
+      patchMessage(chatId, msgId, { streaming: false, status: 'Stopped' });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        patchMessage(chatId, msgId, {
+          content: acc || '*Response stopped.*',
+          streaming: false,
+          status: 'Stopped',
+        });
+      } else {
+        replaceMessage(chatId, msgId, {
+          id: msgId,
+          role: 'assistant',
+          content: `⚠️ Error executing request: ${err.message}`,
+          streaming: false,
+        });
+      }
+    } finally {
+      setLoading(false);
+      if (abortRef.current === controller) abortRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
+    if (abortRef.current) abortRef.current.abort();
+  };
+
+  const handleRegenerate = () => {
+    const chat = chats.find((c) => c.id === activeChatId);
+    if (!chat || loading) return;
+    const msgs = chat.messages;
+    let aIdx = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'assistant' && !msgs[i].streaming) { aIdx = i; break; }
+    }
+    if (aIdx < 0) return;
+    let query = null;
+    for (let i = aIdx - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user' && msgs[i].content) { query = msgs[i].content; break; }
+    }
+    if (!query) return;
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === activeChatId ? { ...c, messages: c.messages.slice(0, aIdx) } : c
+      )
+    );
+    setLoading(true);
+    streamAnswer(activeChatId, query).finally(() => setLoading(false));
+  };
+
   const handleExport = () => {
     window.open('/api/export-report', '_blank');
+  };
+
+  // Explicit opt-in demo helper: loads bundled sample CSVs into this session.
+  // Never called automatically; sessions start empty per the assignment.
+  const handleLoadSamples = async () => {
+    try {
+      const res = await apiFetch('/api/load-samples', { method: 'POST' });
+      if (res.ok) {
+        await fetchCatalog();
+      }
+    } catch (err) {
+      console.error('Failed to load samples:', err);
+    }
   };
 
   return (
@@ -373,6 +602,12 @@ export default function App() {
             loading={loading}
             onNewChat={handleNewChat}
             onExportReport={handleExport}
+            onLoadSamples={handleLoadSamples}
+            onStop={handleStop}
+            onRegenerate={handleRegenerate}
+            llmLive={llmLive}
+            llmModel={apiKey.trim() ? model : serverLlmModel}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             model={model}
             setModel={setModel}
             activeArtifact={activeArtifact}
@@ -396,13 +631,15 @@ export default function App() {
       {/* Settings Dialog Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => { setIsSettingsOpen(false); setLlmTest({ state: 'idle', message: '' }); }}
         provider={provider}
         setProvider={setProvider}
         apiKey={apiKey}
         setApiKey={setApiKey}
         model={model}
         setModel={setModel}
+        llmTest={llmTest}
+        onTestConnection={handleTestConnection}
         onClearAllChats={handleClearAllChats}
       />
     </div>

@@ -3,6 +3,7 @@ import {
   MessageSquare,
   SquarePen,
   PanelLeftClose,
+  Search,
   Trash2,
   Settings,
   Sparkles,
@@ -19,10 +20,14 @@ export default function Sidebar({
   onOpenSettings,
 }) {
   const [hoveredChatId, setHoveredChatId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const visibleChats = searchQuery.trim()
+    ? chats.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : chats;
 
   // Group chats by date: Today, Yesterday, Previous 7 Days, Older
-  const groupChats = () => {
-    const now = new Date();
+  const groupChats = () => {    const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const yesterday = today - 86400000;
     const sevenDaysAgo = today - 7 * 86400000;
@@ -34,8 +39,7 @@ export default function Sidebar({
       Older: [],
     };
 
-    chats.forEach((chat) => {
-      const chatTime = new Date(chat.createdAt || Date.now()).getTime();
+    visibleChats.forEach((chat) => {      const chatTime = new Date(chat.createdAt || Date.now()).getTime();
       if (chatTime >= today) {
         groups.Today.push(chat);
       } else if (chatTime >= yesterday) {
@@ -138,6 +142,35 @@ export default function Sidebar({
         <span>New chat</span>
       </button>
 
+      {/* Search chats (ChatGPT style) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 10px',
+        borderRadius: '10px',
+        backgroundColor: 'transparent',
+        border: '1px solid var(--border-subtle)',
+        marginBottom: '12px',
+      }}>
+        <Search size={15} color="#737373" style={{ flexShrink: 0 }} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search chats"
+          style={{
+            flexGrow: 1,
+            border: 'none',
+            backgroundColor: 'transparent',
+            color: '#ececec',
+            fontSize: '0.85rem',
+            outline: 'none',
+            minWidth: 0,
+          }}
+        />
+      </div>
+
       {/* Recent Chats Section */}
       <div style={{ flexGrow: 1, overflowY: 'auto', marginBottom: '16px' }}>
         {Object.entries(chatGroups).map(([groupTitle, groupItems]) => {
@@ -233,9 +266,9 @@ export default function Sidebar({
           );
         })}
 
-        {chats.length === 0 && (
+        {visibleChats.length === 0 && (
           <div style={{ padding: '16px 10px', color: '#737373', fontSize: '0.82rem', textAlign: 'center' }}>
-            No recent conversations yet.
+            {searchQuery ? 'No chats match your search.' : 'No recent conversations yet.'}
           </div>
         )}
       </div>
@@ -266,8 +299,8 @@ export default function Sidebar({
             A
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#ececec' }}>Data Analyst</div>
-            <div style={{ fontSize: '0.72rem', color: '#10a37f' }}>Muse Glimmer</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#ececec' }}>Prism</div>
+            <div style={{ fontSize: '0.72rem', color: '#10a37f' }}>Deterministic engine</div>
           </div>
         </div>
 

@@ -4,7 +4,7 @@ ChatGPT / Gemini styled React.js Single Page Application built with Vite, Tailwi
 
 ## Features
 - **ChatGPT & Gemini Design Language**: Sleek dark aesthetic, card prompt chips, step-by-step thinking accordions, code drawers.
-- **Model Selector**: NVIDIA NIM `muse-glimmer` (default), `llama-3.1-70b-instruct`, `mixtral-8x7b-instruct`.
+- **Model Selector**: NVIDIA NIM `meta/muse-glimmer-30b` (default), `llama-3.1-70b-instruct`, `mixtral-8x7b-instruct`.
 - **Plotly.js Visualizations**: Zero-lag responsive rendering of charts and distributions.
 - **Data Quality & KPI Dashboard**: Complete table overview, completeness scores, null counts, duplicate records.
 - **Executive HTML Export**: Direct download of executive reports generated deterministically.

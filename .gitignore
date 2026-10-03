@@ -29,6 +29,8 @@ env/
 # Environment Variables
 .env
 .env.local
+.env.*
+!.env.example
 
 # IDE
 .idea/
@@ -48,4 +50,22 @@ htmlcov/
 node_modules/
 dist/
 .eslintcache
+
+# Secrets, credentials & local config
+*.pem
+*.key
+
+# SQLite / local databases (session store may hold API keys + user CSV data)
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+backend/data/sessions.db
+
+# Uploads & runtime data — never commit user data.
+# Shipped sample datasets stay tracked via the exception below.
+uploads/
+backend/data/*
+!backend/data/samples/
 

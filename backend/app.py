@@ -1,4 +1,9 @@
 """
+DEPRECATED legacy Streamlit UI (kept for reference only).
+The production UI is the React SPA in frontend/ served by backend/server.py.
+This file is NOT imported by the FastAPI stack and will be removed in a future release.
+Original description preserved below.
+
 Production-quality AI Data Analyst - Gemini & ChatGPT Inspired Streamlit Interface.
 Maintains strict decoupling: UI only renders state and delegates all reasoning
 and computation to the agent and deterministic tools layer.
@@ -210,17 +215,12 @@ st.markdown(
 
 
 def auto_load_samples_if_empty(state: SessionState) -> None:
-    """Pre-populates the sample sales and customers datasets on initial launch so the UI is immediately interactive."""
-    if not state.datasets:
-        sample_sales = "data/samples/sales_data.csv"
-        sample_cust = "data/samples/customers.csv"
-        if os.path.exists(sample_sales):
-            df_sales = pd.read_csv(sample_sales)
-            state.register_dataset("sales_data", df_sales)
-        if os.path.exists(sample_cust):
-            df_cust = pd.read_csv(sample_cust)
-            state.register_dataset("customers", df_cust)
-        logger.info("Auto-loaded default sample datasets ('sales_data' & 'customers').")
+    """DEPRECATED no-op. Sessions must start empty per the assignment (user uploads CSVs).
+
+    Kept only so the deprecated legacy Streamlit UI keeps importing; it no longer
+    pre-loads anything. Use POST /api/load-samples for explicit opt-in demo data.
+    """
+    return None
 
 
 def get_session_state() -> SessionState:
@@ -236,7 +236,7 @@ def get_agent(
     state: SessionState,
     provider: str = "nvidia",
     api_key: str = "",
-    model_name: str = "muse-glimmer",
+    model_name: str = "meta/muse-glimmer-30b",
     base_url: str = "https://integrate.api.nvidia.com/v1",
 ) -> DataAnalystAgent:
     """Instantiates the agent with updated settings."""
@@ -271,7 +271,7 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
                 provider_key = "nvidia"
                 base_url = "https://integrate.api.nvidia.com/v1"
                 model_options = [
-                    "muse-glimmer",
+                    "meta/muse-glimmer-30b",
                     "meta/llama-3.3-70b-instruct",
                     "nvidia/llama-3.1-nemotron-70b-instruct",
                     "meta/llama-3.1-70b-instruct",
@@ -320,7 +320,8 @@ def render_sidebar(state: SessionState) -> tuple[str, str, str, str]:
                 table_name = file.name.rsplit(".", 1)[0]
                 if table_name not in state.datasets:
                     try:
-                        df = pd.read_csv(file)
+                        from src.utils.csv import read_csv_bytes
+                        df = read_csv_bytes(file.getvalue(), file.name)
                         state.register_dataset(table_name, df)
                         st.success(f"Registered `{table_name}` ({len(df)} rows)")
                     except Exception as err:

@@ -37,6 +37,27 @@ def generate_chart(
     if color and color not in df.columns:
         color = None
 
+    aggregated = False
+    # Aggregate raw event-level data before plotting so bar/pie charts stay readable.
+    # E.g. 1000 raw sales rows grouped by region instead of 1000 individual bars.
+    if (
+        y
+        and chart_type_clean in ("bar", "pie")
+        and len(df) > 50
+        and pd.api.types.is_numeric_dtype(df[y])
+        and df[x].nunique(dropna=True) <= 30
+    ):
+        try:
+            df = df.groupby(x, dropna=False)[y].sum().reset_index()
+            df = df.sort_values(by=y, ascending=False)
+            if chart_type_clean == "pie" and len(df) > 8:
+                df = df.head(8)
+            elif len(df) > 15:
+                df = df.head(15)
+            aggregated = True
+        except Exception:
+            pass
+
     fig: go.Figure
 
     if chart_type_clean == "bar":
@@ -130,7 +151,8 @@ def generate_chart(
         "title": chart_title,
         "plotly_spec": fig.to_dict(),
         "pandas_code": pandas_code,
-        "summary": f"Created {chart_type_clean} chart with x='{x}' and y='{y}'.",
+        "summary": f"Created {chart_type_clean} chart with x='{x}' and y='{y}'."
+        + (" Pre-aggregated raw rows with SUM grouped by x." if aggregated else ""),
     }
 
 
