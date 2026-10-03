@@ -258,8 +258,8 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
 | **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
-| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (18s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
-| **UI Screenshots** | ✅ Ready | 4 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots) |
+| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (21s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
+| **UI Screenshots** | ✅ Ready | 6 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots-in-order) |
 | **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](file:///home/santhosh/dbo/backend/Dockerfile) & [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](file:///home/santhosh/dbo/backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](file:///home/santhosh/dbo/backend/data/samples/customers.csv), [`sales_data_sample.csv`](file:///home/santhosh/dbo/sales_data_sample.csv) |
 | **Assumptions & Implementation Notes** | ✅ Ready | [Detailed Below](#-assumptions--implementation-notes) |
@@ -268,11 +268,11 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 ## 🎬 Application Demo Video
 
-An 18-second video walkthrough demonstrating the end-to-end user workflow: CSV ingestion, natural language questions, Plotly visualization, Executive Dashboard generation, and statistical anomaly detection.
+A 21-second video walkthrough demonstrating the complete user journey: attaching a CSV file to the conversation, automated profiling, natural language analytics, Plotly visualization, Executive Dashboard generation, and statistical anomaly detection.
 
 > **Video Formats Available:**  
-> - 📹 **MP4 Video (18s, H.264)**: [`docs/demo.mp4`](docs/demo.mp4)  
-> - 🌐 **WebM Video (18s, VP9)**: [`docs/demo.webm`](docs/demo.webm)  
+> - 📹 **MP4 Video (21s, H.264)**: [`docs/demo.mp4`](docs/demo.mp4)  
+> - 🌐 **WebM Video (21s, VP9)**: [`docs/demo.webm`](docs/demo.webm)  
 > - 📄 **Step-by-Step Script**: [`docs/demo_guide.md`](docs/demo_guide.md)
 
 ### Animated Walkthrough Preview
@@ -280,33 +280,47 @@ An 18-second video walkthrough demonstrating the end-to-end user workflow: CSV i
 
 ---
 
-## 📸 Key Features & Screenshots
+## 📸 Key Features & Screenshots (In Order)
 
-### 1. Clean Empty State & CSV File Ingestion
-*Drag-and-drop CSV upload, attachment preview chips, capability prompt suggestions, and explicit opt-in sample dataset loader.*
+### 1. Clean Empty State & Landing View
+*Initial workspace with drag-and-drop ingestion area, capability suggestion cards, model indicator, and sample data loader.*
 
-![Empty State & CSV Ingestion](docs/screenshots/01-empty-state.png)
-
----
-
-### 2. Conversational Analytics & Interactive Visualizations
-*Multi-turn natural language exploration, deterministic calculation grounding, dynamic ranking, and responsive Plotly bar/line/pie charts.*
-
-![Conversational Analytics & Plotly Visualization](docs/screenshots/02-chat-analysis.png)
+![1. Clean Empty State](docs/screenshots/01-empty-state.png)
 
 ---
 
-### 3. Claude-Style Executive Dashboard Artifact
-*Instant comprehensive business overview featuring KPI metric cards, automated data quality completeness score, and segmented category breakdowns.*
+### 2. Attaching a File to the Conversation
+*User selects/attaches a CSV file using the paperclip button; an interactive attachment preview chip displays the file name, CSV badge, and file size (515.6 KB) directly inside the input prompt.*
 
-![Executive Dashboard Artifact](docs/screenshots/03-dashboard-artifact.png)
+![2. File Attachment Preview](docs/screenshots/02-file-attachment-preview.png)
 
 ---
 
-### 4. Statistical Anomaly Detection & Execution Transparency
-*Automated Tukey IQR outlier fences ($Q_1 - 1.5 \times \text{IQR}$, $Q_3 + 1.5 \times \text{IQR}$), flagged record explanations, and full copyable DuckDB SQL & Pandas execution drawers.*
+### 3. File Uploaded & Automatic Dataset Profiling
+*User submits the conversation message with the attached file. The chat feed renders a ChatGPT-style attached file pill card, followed by Prism's automated schema inspection, row/column counts, memory footprint, data quality score, and one-click Executive Dashboard prompt.*
 
-![Statistical Anomaly Detection & SQL Trace](docs/screenshots/04-anomalies-sql-trace.png)
+![3. File Uploaded & Profiled](docs/screenshots/03-file-uploaded-and-profiled.png)
+
+---
+
+### 4. Conversational Analytics & Interactive Visualization
+*Natural language analytical query (*"Which region generated the highest revenue?"*). The agent computes deterministic metrics via DuckDB (zero numerical hallucination) and renders a responsive, dark-themed interactive Plotly Bar Chart.*
+
+![4. Conversational Analytics & Plotly Visualization](docs/screenshots/04-chat-analysis-and-chart.png)
+
+---
+
+### 5. Claude-Style Executive Dashboard Artifact Panel
+*User triggers *"Generate an Executive Dashboard"*. The side artifact drawer opens with high-level KPI cards (Total Revenue, Volume, Active Categories), data completeness audit, and segmented category breakdowns.*
+
+![5. Executive Dashboard Artifact](docs/screenshots/05-dashboard-artifact.png)
+
+---
+
+### 6. Statistical Anomaly Detection & Execution Transparency
+*User requests *"Detect anomalies in revenue and explain why they were flagged."* The system calculates Tukey IQR fences ($Q_1 - 1.5 \times \text{IQR}$, $Q_3 + 1.5 \times \text{IQR}$), presents flagged outlier records with mathematical justifications, and expands the copyable DuckDB SQL and Pandas execution drawers.*
+
+![6. Statistical Anomaly Detection & SQL Trace](docs/screenshots/06-anomalies-sql-trace.png)
 
 ---
 
