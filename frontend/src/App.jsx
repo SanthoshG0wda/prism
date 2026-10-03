@@ -125,10 +125,17 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setChats(parsed);
-          setActiveChatId(parsed[0].id);
+          const migrated = parsed.map((c) => ({
+            ...c,
+            sessionId: c.sessionId || ('ses_' + c.id),
+          }));
+          setChats(migrated);
+          setActiveChatId(migrated[0].id);
+          try {
+            localStorage.setItem(SESSION_KEY, migrated[0].sessionId);
+          } catch {}
           // Load active artifact if saved in the active chat
-          const latestArt = parsed[0]?.messages?.findLast?.((m) => m.artifact)?.artifact;
+          const latestArt = migrated[0]?.messages?.findLast?.((m) => m.artifact)?.artifact;
           if (latestArt) {
             setActiveArtifact(latestArt);
           }
@@ -139,10 +146,14 @@ export default function App() {
       }
     }
 
-    // Default empty chat if none exist (no sample data assumed;
-    // sessions start empty per the assignment - the user uploads CSVs).
+    // Default empty chat if none exist
+    const freshSid = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try {
+      localStorage.setItem(SESSION_KEY, freshSid);
+    } catch {}
     const defaultChat = {
       id: 'chat_' + Date.now(),
+      sessionId: freshSid,
       title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
@@ -214,24 +225,40 @@ export default function App() {
   };
 
   const handleNewChat = () => {
+    const freshSid = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try {
+      localStorage.setItem(SESSION_KEY, freshSid);
+    } catch {}
     const newChat = {
       id: 'chat_' + Date.now(),
+      sessionId: freshSid,
       title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
-      activeDataset: catalog.active_dataset || null,
+      activeDataset: null,
     };
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
     setIsArtifactOpen(false);
     setActiveArtifact(null);
+    setCatalog({ active_dataset: null, tables: [] });
+    setTimeout(() => fetchCatalog(), 20);
   };
 
   const handleSelectChat = (id) => {
     setActiveChatId(id);
     const targetChat = chats.find((c) => c.id === id);
-    if (targetChat?.activeDataset && targetChat.activeDataset !== catalog.active_dataset) {
-      handleSelectDataset(targetChat.activeDataset);
+    if (targetChat) {
+      const sid = targetChat.sessionId || ('ses_' + targetChat.id);
+      try {
+        localStorage.setItem(SESSION_KEY, sid);
+      } catch {}
+      setTimeout(() => {
+        fetchCatalog();
+        if (targetChat.activeDataset) {
+          handleSelectDataset(targetChat.activeDataset);
+        }
+      }, 20);
     }
     // Check if selected chat has an artifact
     const chatArt = targetChat?.messages?.slice()?.reverse()?.find((m) => m.artifact)?.artifact;
@@ -243,21 +270,43 @@ export default function App() {
   };
 
   const handleDeleteChat = (id) => {
+    const chatToDelete = chats.find((c) => c.id === id);
+    if (chatToDelete?.sessionId) {
+      try {
+        fetch(getApiUrl('/api/session'), {
+          method: 'DELETE',
+          headers: { 'X-Session-Id': chatToDelete.sessionId },
+        }).catch(() => {});
+      } catch {}
+    }
     setChats((prev) => {
       const remaining = prev.filter((c) => c.id !== id);
       if (activeChatId === id) {
         if (remaining.length > 0) {
-          setActiveChatId(remaining[0].id);
+          const nextChat = remaining[0];
+          const nextSid = nextChat.sessionId || ('ses_' + nextChat.id);
+          try {
+            localStorage.setItem(SESSION_KEY, nextSid);
+          } catch {}
+          setActiveChatId(nextChat.id);
+          setTimeout(() => fetchCatalog(), 20);
         } else {
+          const freshSid = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+          try {
+            localStorage.setItem(SESSION_KEY, freshSid);
+          } catch {}
           const fresh = {
             id: 'chat_' + Date.now(),
+            sessionId: freshSid,
             title: 'New conversation',
             createdAt: Date.now(),
             messages: [],
-            activeDataset: catalog.active_dataset || null,
+            activeDataset: null,
           };
           remaining.push(fresh);
           setActiveChatId(fresh.id);
+          setCatalog({ active_dataset: null, tables: [] });
+          setTimeout(() => fetchCatalog(), 20);
         }
       }
       return remaining;
@@ -265,24 +314,24 @@ export default function App() {
   };
 
   const handleClearAllChats = () => {
-    // Delete the server session (datasets + SQLite history), then rotate id.
-    // Otherwise old uploads would resurface under the stored X-Session-Id.
-    try {
-      apiFetch('/api/session', { method: 'DELETE' }).catch(() => {});
-    } catch {
-      /* network unavailable */
-    }
+    chats.forEach((c) => {
+      if (c.sessionId) {
+        try {
+          fetch(getApiUrl('/api/session'), {
+            method: 'DELETE',
+            headers: { 'X-Session-Id': c.sessionId },
+          }).catch(() => {});
+        } catch {}
+      }
+    });
     localStorage.removeItem(STORAGE_KEY);
-    // Rotate the server session too: otherwise previously uploaded (or sample)
-    // datasets persist server-side under the stored X-Session-Id and the next
-    // "hello" would still list them. A fresh id => truly empty session.
+    const freshSid = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     try {
-      localStorage.removeItem(SESSION_KEY);
-    } catch {
-      /* storage unavailable */
-    }
+      localStorage.setItem(SESSION_KEY, freshSid);
+    } catch {}
     const fresh = {
       id: 'chat_' + Date.now(),
+      sessionId: freshSid,
       title: 'New conversation',
       createdAt: Date.now(),
       messages: [],
@@ -292,7 +341,8 @@ export default function App() {
     setActiveChatId(fresh.id);
     setIsArtifactOpen(false);
     setActiveArtifact(null);
-    fetchCatalog();
+    setCatalog({ active_dataset: null, tables: [] });
+    setTimeout(() => fetchCatalog(), 20);
   };
 
   const handleSendMessage = async (queryText, files = []) => {
