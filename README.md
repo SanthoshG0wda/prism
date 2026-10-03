@@ -321,19 +321,6 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 ---
 
-## 🎬 Application Demo Video
-
-A 21-second video walkthrough demonstrating the complete user journey: attaching a CSV file to the conversation, automated profiling, natural language analytics, Plotly visualization, Executive Dashboard generation, and statistical anomaly detection.
-
-> **Video Formats Available:**  
-> - 📹 **MP4 Video (21s, H.264)**: [`docs/demo.mp4`](docs/demo.mp4)  
-> - 🌐 **WebM Video (21s, VP9)**: [`docs/demo.webm`](docs/demo.webm)  
-> - 📄 **Step-by-Step Script**: [`docs/demo_guide.md`](docs/demo_guide.md)
-
-### Animated Walkthrough Preview
-![AI Data Analyst Demo Walkthrough](docs/demo.gif)
-
----
 
 ## 📸 Key Features & Screenshots (In Order)
 
