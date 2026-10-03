@@ -69,3 +69,8 @@ uploads/
 backend/data/*
 !backend/data/samples/
 
+# Vercel
+.vercel/
+
+.vercel
+.env*
