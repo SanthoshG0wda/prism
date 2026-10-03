@@ -143,17 +143,17 @@ flowchart TD
 
 ### Strict Layer Decoupling:
 - **UI (`frontend/src/`)**: React SPA — input rendering, layout, visualization display. Zero business logic.
-- **API (`backend/server.py`)**: FastAPI REST + static SPA serving + per-session routing via `X-Session-Id` (`src/agent/sessions.py`).
-- **Agent (`src/agent/`)**: Orchestrates the 7-step analytical lifecycle. Manages context, prompts, and tool dispatching.
-- **Tools (`src/tools/`)**: Isolated deterministic calculation engines with strict typed contracts.
-- **Services (`src/services/`)**: LLM transport and JSON schema enforcement.
-- **Models (`src/models/`)**: Pydantic v2 schemas for all inputs, plans, and outputs.
-- **Utils (`src/utils/`)**: Structured logging and configuration.
+- **API (`backend/server.py`)**: FastAPI REST + static SPA serving + per-session routing via `X-Session-Id` (`backend/src/agent/sessions.py`).
+- **Agent (`backend/src/agent/`)**: Orchestrates the 7-step analytical lifecycle. Manages context, prompts, and tool dispatching.
+- **Tools (`backend/src/tools/`)**: Isolated deterministic calculation engines with strict typed contracts.
+- **Services (`backend/src/services/`)**: LLM transport and JSON schema enforcement.
+- **Models (`backend/src/models/`)**: Pydantic v2 schemas for all inputs, plans, and outputs.
+- **Utils (`backend/src/utils/`)**: Structured logging and configuration.
 
 ## 📁 Project Directory Structure
 
 ```text
-ai-data-analyst/
+prism/
 ├── backend/                    # High-Performance Python Analytics Backend
 │   ├── src/
 │   │   ├── agent/              # 7-step DataAnalystAgent orchestrator & session state
@@ -283,9 +283,9 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Ranking** | *"Which region generated the highest revenue?"* | `top_k_analysis` |
 | **Outliers** | *"Detect anomalies in revenue and explain why they were flagged."* | `detect_anomalies` (IQR) |
 | **Trends** | *"Show the monthly sales trend."* | `time_series_trend` / `generate_chart` |
-| **Performance**| *"Which products are underperforming?"* | `top_k_analysis` (ascending) |
+| **Performance** | *"Which products are underperforming?"* | `top_k_analysis` (ascending) |
 | **SQL** | *"Generate SQL for sales by region."* | `execute_sql_query` |
-| **Visualizations**| *"Generate a bar chart of profit by region."* | `generate_chart` |
+| **Visualizations** | *"Generate a bar chart of profit by region."* | `generate_chart` |
 | **Data Quality** | *"Run a data quality audit on the active dataset."* | `check_data_quality` |
 
 ---
@@ -297,7 +297,7 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 3. **DuckDB Isolation**: In-memory DuckDB connections run with read-only validation against destructive keywords (`DROP`, `DELETE`, `ALTER`, `ATTACH`). Each `X-Session-Id` gets its own isolated DuckDB connection via `SessionManager`.
 4. **Resilience**: The system gracefully falls back to statistical summaries if an external LLM request times out.
 5. **Multi-user sessions**: Send `X-Session-Id` header (React client auto-generates + persists one in `localStorage`). Requests without it share the backwards-compatible `"default"` session. `POST /api/session` mints a fresh id.
-6. **Generic CSV support**: Dashboards (`src/tools/dashboard.py`), intent routing (`analyst.py`), and the offline heuristic planner (`services/llm.py`) infer categorical/numeric/date roles from the actual schema — no `region`/`revenue` assumption.
+6. **Generic CSV support**: Dashboards (`backend/src/tools/dashboard.py`), intent routing (`backend/src/agent/analyst.py`), and the offline heuristic planner (`backend/src/services/llm.py`) infer categorical/numeric/date roles from the actual schema — no `region`/`revenue` assumption.
 
 ---
 
@@ -310,17 +310,16 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Standalone Frontend Repo** | ✅ Ready | [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend) |
 | **Live Web App (Frontend)** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) |
 | **Live API (Backend)** | ✅ Live | [https://prism-backend-tau.vercel.app](https://prism-backend-tau.vercel.app) (Swagger: [`/docs`](https://prism-backend-tau.vercel.app/docs)) |
-| **Complete Source Code** | ✅ Ready | Full repo: `backend/`, `frontend/`, `docker-compose.yml` |
+| **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](backend/), [`frontend/`](frontend/), [`docker-compose.yml`](docker-compose.yml) |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
-| **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & `docs/architecture.md` |
-| **Live Interactive Demo** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) *(Zero-install cloud demo)* |
-| **UI Screenshots & Walkthrough** | ✅ Ready | 6 High-Resolution Screenshots in `docs/screenshots/` & [embedded below](#-key-features--screenshots-in-order) |
-| **Docker Support (Preferred)** | ✅ Ready | `backend/Dockerfile` & `docker-compose.yml` |
-| **Sample Dataset(s)** | ✅ Ready | `backend/data/samples/sales_data.csv`, `backend/data/samples/customers.csv`, `sales_data_sample.csv` |
+| **Architecture Diagram** | ✅ Ready | [Mermaid Architecture](#-architecture--component-separation) & [`docs/architecture.md`](docs/architecture.md) |
+| **Live Web Application** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) *(Cloud-hosted production build)* |
+| **UI Screenshots & Walkthrough** | ✅ Ready | 6 High-Resolution Screenshots in [`docs/screenshots/`](docs/screenshots/) & [embedded below](#-key-features--screenshots-in-order) |
+| **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](backend/Dockerfile) & [`docker-compose.yml`](docker-compose.yml) |
+| **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](backend/data/samples/customers.csv), [`sales_data_sample.csv`](sales_data_sample.csv) |
 | **Assumptions & Implementation Notes** | ✅ Ready | [Detailed Below](#-assumptions--implementation-notes) |
 
 ---
-
 
 ## 📸 Key Features & Screenshots (In Order)
 
