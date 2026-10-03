@@ -161,6 +161,8 @@ def load_sample_datasets(session: tuple[str, SessionState] = Depends(resolve_ses
                 name, read_csv_bytes(raw, os.path.basename(path)),
                 source_bytes=raw, filename=os.path.basename(path),
             )
+    if "sales_data" in session_state.datasets:
+        session_state.set_active_dataset("sales_data")
     return {"message": "Sample datasets loaded successfully", "active": session_state.active_dataset_name}
 
 
