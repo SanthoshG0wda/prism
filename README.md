@@ -1,11 +1,13 @@
 # AI-Powered Data Analyst (Prism)
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/SanthoshG0wda/prism)
-[![Tests Passing](https://img.shields.io/badge/Tests-148%20Passing-success)](https://github.com/SanthoshG0wda/prism)
+[![Tests Passing](https://img.shields.io/badge/Tests-153%20Passing-success)](https://github.com/SanthoshG0wda/prism)
 [![Docker Support](https://img.shields.io/badge/Docker-Supported-blue?logo=docker)](https://github.com/SanthoshG0wda/prism#docker-deployment)
 [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SanthoshG0wda/prism)
 
-> **Repository URL**: [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism)  
+> **Primary Submission Repository**: [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism)  
+> **Standalone Backend Repository**: [https://github.com/SanthoshG0wda/prism-backend](https://github.com/SanthoshG0wda/prism-backend)  
+> **Standalone Frontend Repository**: [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend)  
 > **Assignment**: Digital Back Office Software Engineer Intern Assignment
 
 A production-grade, conversational Data Analyst platform that enables users to upload single or multiple CSV files, ask questions in natural language, detect anomalies, view interactive visualizations, and inspect deterministic data insights.
