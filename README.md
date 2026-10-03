@@ -27,7 +27,7 @@ A production-grade, conversational Data Analyst platform that enables users to u
 This codebase is architected for both **monorepo local development** and **independent, decoupled microservice deployments**:
 
 1. **[Unified Monorepo (`SanthoshG0wda/prism`)](https://github.com/SanthoshG0wda/prism)**:
-   - Houses the complete repository containing both [`backend/`](file:///home/santhosh/dbo/backend) and [`frontend/`](file:///home/santhosh/dbo/frontend), comprehensive test suite (155 tests), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml), architecture documentation, demo video, and screenshots.
+   - Houses the complete repository containing both `backend/` and `frontend/`, comprehensive test suite (155 tests), `docker-compose.yml`, architecture documentation, demo video, and screenshots.
    - Recommended for local full-stack development, Docker execution, and grading.
 
 2. **[Standalone Backend Repository (`SanthoshG0wda/prism-backend`)](https://github.com/SanthoshG0wda/prism-backend)**:
@@ -73,7 +73,7 @@ This codebase is architected for both **monorepo local development** and **indep
 
 6. **Safe SQL Analytics (DuckDB)**:
    - Registers all uploaded CSVs as in-memory DuckDB tables.
-   - Enforces read-only safety validation to block `DROP`, `DELETE`, `INSERT`, `UPDATE`, `ALTER`, etc.
+   - Enforces a strict sqlglot allowlist validator (single `SELECT` only) plus a hardened engine (external file access off, locked config, query timeouts) — blocking `DROP`, `DELETE`, file reads (`read_csv`), `CALL`, and stacked statements.
    - Enables multi-table joins (e.g. joining sales with customer tables).
 
 7. **Statistical Anomaly Detection**:
@@ -148,7 +148,9 @@ flowchart TD
 - **Tools (`src/tools/`)**: Isolated deterministic calculation engines with strict typed contracts.
 - **Services (`src/services/`)**: LLM transport and JSON schema enforcement.
 - **Models (`src/models/`)**: Pydantic v2 schemas for all inputs, plans, and outputs.
-- **Utils (`src/utils/`)**: Structured logging and configuration.## 📁 Project Directory Structure
+- **Utils (`src/utils/`)**: Structured logging and configuration.
+
+## 📁 Project Directory Structure
 
 ```text
 ai-data-analyst/
@@ -160,7 +162,7 @@ ai-data-analyst/
 │   │   ├── models/             # Pydantic v2 schemas & typed contracts
 │   │   └── utils/              # Structured logging and evaluation benchmarks
 │   ├── data/samples/           # Sample CSVs (sales_data.csv, customers.csv)
-│   ├── tests/                  # 23 comprehensive unit & evaluation tests
+│   ├── tests/                  # 155 comprehensive unit & evaluation tests
 │   ├── server.py               # FastAPI analytical REST server
 │   ├── run.py                  # Unified launcher
 │   ├── pyproject.toml          # uv package dependencies
@@ -299,8 +301,6 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 ---
 
----
-
 ## 📋 Deliverables & Submission Checklist
 
 | Deliverable | Status | Location / Artifact |
@@ -313,7 +313,7 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 | **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
 | **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
-
+| **Short Demo Video (10–30s)** | ✅ Ready | [`docs/demo.mp4`](file:///home/santhosh/dbo/docs/demo.mp4) (21s), [`docs/demo.webm`](file:///home/santhosh/dbo/docs/demo.webm), & [Inline Preview](#-application-demo-video) |
 | **UI Screenshots** | ✅ Ready | 6 High-Resolution Screenshots in [`docs/screenshots/`](file:///home/santhosh/dbo/docs/screenshots) & [embedded below](#-key-features--screenshots-in-order) |
 | **Docker Support (Preferred)** | ✅ Ready | [`backend/Dockerfile`](file:///home/santhosh/dbo/backend/Dockerfile) & [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **Sample Dataset(s)** | ✅ Ready | [`backend/data/samples/sales_data.csv`](file:///home/santhosh/dbo/backend/data/samples/sales_data.csv), [`backend/data/samples/customers.csv`](file:///home/santhosh/dbo/backend/data/samples/customers.csv), [`sales_data_sample.csv`](file:///home/santhosh/dbo/sales_data_sample.csv) |
