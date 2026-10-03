@@ -1,16 +1,42 @@
 # AI-Powered Data Analyst (Prism)
 
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/SanthoshG0wda/prism)
-[![Tests Passing](https://img.shields.io/badge/Tests-153%20Passing-success)](https://github.com/SanthoshG0wda/prism)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Monorepo-181717?logo=github)](https://github.com/SanthoshG0wda/prism)
+[![Backend Repository](https://img.shields.io/badge/GitHub-Backend_Repo-181717?logo=github)](https://github.com/SanthoshG0wda/prism-backend)
+[![Frontend Repository](https://img.shields.io/badge/GitHub-Frontend_Repo-181717?logo=github)](https://github.com/SanthoshG0wda/prism-frontend)
+[![Tests Passing](https://img.shields.io/badge/Tests-155%20Passing-success)](https://github.com/SanthoshG0wda/prism)
 [![Docker Support](https://img.shields.io/badge/Docker-Supported-blue?logo=docker)](https://github.com/SanthoshG0wda/prism#docker-deployment)
 [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SanthoshG0wda/prism)
 
-> **Primary Submission Repository**: [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism)  
-> **Standalone Backend Repository**: [https://github.com/SanthoshG0wda/prism-backend](https://github.com/SanthoshG0wda/prism-backend)  
-> **Standalone Frontend Repository**: [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend)  
-> **Assignment**: Digital Back Office Software Engineer Intern Assignment
+> 🌐 **Live Production Deployments**:
+> - **Frontend Web App**: [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app)
+> - **FastAPI Backend**: [https://prism-backend-tau.vercel.app](https://prism-backend-tau.vercel.app) (API Docs: [`/docs`](https://prism-backend-tau.vercel.app/docs), Health: [`/api/health`](https://prism-backend-tau.vercel.app/api/health))
+>
+> 📦 **Repositories (Monorepo & Standalone Microservices)**:
+> - **Primary Monorepo (Complete Codebase & Tests)**: [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism)
+> - **Standalone Backend Repository**: [https://github.com/SanthoshG0wda/prism-backend](https://github.com/SanthoshG0wda/prism-backend) *(Decoupled FastAPI service deployed independently on Vercel)*
+> - **Standalone Frontend Repository**: [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend) *(Decoupled React SPA deployed independently on Vercel)*
+>
+> 🎯 **Assignment**: Digital Back Office Software Engineer Intern Assignment
 
 A production-grade, conversational Data Analyst platform that enables users to upload single or multiple CSV files, ask questions in natural language, detect anomalies, view interactive visualizations, and inspect deterministic data insights.
+
+---
+
+## 📦 Repository Organization: Monorepo & Standalone Repositories
+
+This codebase is architected for both **monorepo local development** and **independent, decoupled microservice deployments**:
+
+1. **[Unified Monorepo (`SanthoshG0wda/prism`)](https://github.com/SanthoshG0wda/prism)**:
+   - Houses the complete repository containing both [`backend/`](file:///home/santhosh/dbo/backend) and [`frontend/`](file:///home/santhosh/dbo/frontend), comprehensive test suite (155 tests), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml), architecture documentation, demo video, and screenshots.
+   - Recommended for local full-stack development, Docker execution, and grading.
+
+2. **[Standalone Backend Repository (`SanthoshG0wda/prism-backend`)](https://github.com/SanthoshG0wda/prism-backend)**:
+   - Fully decoupled, independent FastAPI service configured with in-memory DuckDB, SQLite state persistence, and public CORS headers.
+   - Hosted live on Vercel at [https://prism-backend-tau.vercel.app](https://prism-backend-tau.vercel.app).
+
+3. **[Standalone Frontend Repository (`SanthoshG0wda/prism-frontend`)](https://github.com/SanthoshG0wda/prism-frontend)**:
+   - Fully decoupled, independent Vite + React SPA configured with `VITE_API_URL`, ChatGPT-style SSE streaming, Claude-style Artifact panels, and Slash Commands.
+   - Hosted live on Vercel at [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app).
 
 ---
 
@@ -21,11 +47,21 @@ A production-grade, conversational Data Analyst platform that enables users to u
    - Automatically profiles columns, null percentages, distinct counts, and data distributions.
    - Computes an end-to-end **Data Quality Score** with structural sanity checks.
 
-2. **Conversational Natural Language Interface**:
+2. **Per-Conversation Session & Dataset Isolation**:
+   - Each chat conversation generates and maintains its own dedicated session ID.
+   - Creating a **New Chat** gives a completely clean slate with zero lingering files in context.
+   - Switching back to previous chats restores their specific uploaded datasets and context.
+
+3. **Interactive Slash Commands (`/`)**:
+   - Built-in quick feature launcher: type `/` or click the **`/`** button to open the command palette.
+   - Includes `/dashboard` (Executive KPI Artifact), `/anomalies` (IQR & Z-score audit), `/quality` (Data quality check), `/profile` (Statistical schema profiling), `/sql` (DuckDB query execution), `/forecast` (95% CI projection), and `/chart` (Plotly visualization).
+   - Features full keyboard navigation (`↑`/`↓`/`Enter`/`Esc`) and auto-complete filtering.
+
+4. **Conversational Natural Language Interface**:
    - Answer analytical questions without inventing or hallucinating numbers.
    - Maintains multi-turn conversational session context.
 
-3. **Deterministic Tool Calling & Orchestration**:
+5. **Deterministic Tool Calling & Orchestration**:
    - Implements a strict **7-step analytical lifecycle**:
      1. Parse user question & conversation context
      2. Inspect dataset catalog schema & column statistics
@@ -35,32 +71,32 @@ A production-grade, conversational Data Analyst platform that enables users to u
      6. Validate results integrity
      7. Synthesize transparent natural-language explanation with business takeaways
 
-4. **Safe SQL Analytics (DuckDB)**:
+6. **Safe SQL Analytics (DuckDB)**:
    - Registers all uploaded CSVs as in-memory DuckDB tables.
    - Enforces read-only safety validation to block `DROP`, `DELETE`, `INSERT`, `UPDATE`, `ALTER`, etc.
    - Enables multi-table joins (e.g. joining sales with customer tables).
 
-5. **Statistical Anomaly Detection**:
+7. **Statistical Anomaly Detection**:
    - **Interquartile Range (IQR)**: Tukey's Fences method ($Q_1 - 1.5 \times \text{IQR}$, $Q_3 + 1.5 \times \text{IQR}$).
    - **Z-Score Method**: Standard score threshold detection ($|Z| > 3.0$).
    - Provides exact mathematical bounds, baseline values, and contextual explanations.
 
-6. **Interactive Visualizations (Plotly)**:
+8. **Interactive Visualizations (Plotly)**:
    - Dynamic bar, line, pie/donut, scatter, histogram, and box plots.
    - Styled with modern dark theme and responsive layout.
 
-7. **Explainability & Code Generation**:
+9. **Explainability & Code Generation**:
    - Provides step-by-step execution traces explaining how every answer was obtained.
    - Displays generated DuckDB SQL and equivalent Pandas code for auditing and transparency.
    - **No unrestricted `exec()`**: User data and host environment remain completely secure.
 
-8. **Offline / Out-of-the-Box Heuristic Fallback**:
-   - Runs seamlessly even without an external paid API key using built-in deterministic heuristic planning.
-   - Fully compatible with OpenAI, Gemini (via OpenAI compatibility endpoint), Groq, and Ollama.
+10. **Offline / Out-of-the-Box Heuristic Fallback**:
+    - Runs seamlessly even without an external paid API key using built-in deterministic heuristic planning.
+    - Fully compatible with OpenAI, Gemini (via OpenAI compatibility endpoint), Groq, and Ollama.
 
-9. **ChatGPT-Style Streaming UX**:
-   - `POST /api/chat-stream` streams live status, answer tokens (NIM `stream:true`), and a final result event over SSE.
-   - Stop-generation button, regenerate-response button, chat search, persisted model/key settings, and an Executive Dashboard artifact panel.
+11. **ChatGPT-Style Streaming UX & Artifacts**:
+    - `POST /api/chat-stream` streams live status, answer tokens (NIM `stream:true`), and a final result event over SSE.
+    - Stop-generation button, regenerate-response button, chat search, persisted model/key settings, and an Executive Dashboard artifact panel.
 
 ---
 
@@ -269,7 +305,11 @@ on the empty chat screen to load the bundled `sales_data` / `customers` samples)
 
 | Deliverable | Status | Location / Artifact |
 |---|:---:|---|
-| **GitHub Repository** | ✅ Ready | [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism) |
+| **Primary Monorepo** | ✅ Ready | [https://github.com/SanthoshG0wda/prism](https://github.com/SanthoshG0wda/prism) *(Unified codebase, Docker, tests)* |
+| **Standalone Backend Repo** | ✅ Ready | [https://github.com/SanthoshG0wda/prism-backend](https://github.com/SanthoshG0wda/prism-backend) |
+| **Standalone Frontend Repo** | ✅ Ready | [https://github.com/SanthoshG0wda/prism-frontend](https://github.com/SanthoshG0wda/prism-frontend) |
+| **Live Web App (Frontend)** | ✅ Live | [https://prism-frontend-wine.vercel.app](https://prism-frontend-wine.vercel.app) |
+| **Live API (Backend)** | ✅ Live | [https://prism-backend-tau.vercel.app](https://prism-backend-tau.vercel.app) (Swagger: [`/docs`](https://prism-backend-tau.vercel.app/docs)) |
 | **Complete Source Code** | ✅ Ready | Full repo: [`backend/`](file:///home/santhosh/dbo/backend), [`frontend/`](file:///home/santhosh/dbo/frontend), [`docker-compose.yml`](file:///home/santhosh/dbo/docker-compose.yml) |
 | **README with Setup Instructions** | ✅ Ready | [Prerequisites & Quick Start](#-getting-started-with-react--uv) |
 | **Architecture Diagram** | ✅ Ready | [Interactive Mermaid Architecture](#%EF%B8%8F-architecture--component-separation) & [`docs/architecture.md`](file:///home/santhosh/dbo/docs/architecture.md) |
