@@ -10,11 +10,7 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/|api$).*)",
       "destination": "/index.html"
     }
   ]
