@@ -62,15 +62,22 @@ class SQLiteSessionStore:
     """Thread-safe SQLite persistence for sessions, datasets, and messages."""
 
     def __init__(self, db_path: Optional[str] = None) -> None:
-        resolved = (
-            db_path
-            or os.getenv("SESSION_DB_PATH")
-            or os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "sessions.db"
+        if not db_path and not os.getenv("SESSION_DB_PATH") and os.getenv("VERCEL"):
+            resolved = "/tmp/sessions.db"
+        else:
+            resolved = (
+                db_path
+                or os.getenv("SESSION_DB_PATH")
+                or os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "sessions.db"
+                )
             )
-        )
         self.db_path = os.path.abspath(resolved)
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        try:
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        except OSError:
+            self.db_path = "/tmp/sessions.db"
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._lock = threading.Lock()
         self._init_db()
         logger.info(f"Session store ready at {self.db_path}")

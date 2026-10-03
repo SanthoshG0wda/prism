@@ -47,6 +47,8 @@ class LLMSettings(BaseSettings):
 
     def get_effective_api_key(self) -> Optional[str]:
         """Returns the configured API key from either NVIDIA_API_KEY or LLM_API_KEY."""
+        if self.api_key == "" or self.llm_api_key == "":
+            return ""
         return self.api_key or self.llm_api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY")
 
 
@@ -71,9 +73,7 @@ class LLMService:
             self.settings.model = model
 
         # Resolve API key
-        resolved_key = self.settings.get_effective_api_key()
-        if resolved_key:
-            self.settings.api_key = resolved_key
+        self.settings.api_key = self.settings.get_effective_api_key() or ""
 
         logger.info(
             f"Initialized LLMService with provider='{self.settings.provider}', "
@@ -82,6 +82,8 @@ class LLMService:
 
     def is_configured(self) -> bool:
         """Checks if a valid live API key is configured."""
+        if self.settings.provider.lower() in ("mock", "offline", "heuristic"):
+            return False
         key = self.settings.api_key
         return bool(key and key not in ("your-api-key-here", "nvapi-your-key-here") and len(key.strip()) > 5)
 

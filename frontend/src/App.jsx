@@ -45,8 +45,10 @@ function getSessionId() {
 }
 
 function apiFetch(url, options = {}) {
+  const base = import.meta.env.VITE_API_URL || '';
+  const fullUrl = url.startsWith('/') && base ? `${base.replace(/\/+$/, '')}${url}` : url;
   const headers = { ...(options.headers || {}), 'X-Session-Id': getSessionId() };
-  return fetch(url, { ...options, headers });
+  return fetch(fullUrl, { ...options, headers });
 }
 
 export default function App() {

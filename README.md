@@ -209,6 +209,19 @@ uv run pytest tests/ -v
 
 ---
 
+## ⚡ Vercel Deployment (One-Click)
+
+The repository includes native Vercel configuration (`vercel.json`, `api/index.py`, `requirements.txt`):
+
+1. Import the repository on [Vercel](https://vercel.com).
+2. Leave settings as default (Build Command: `cd frontend && npm install && npm run build`, Output: `frontend/dist`).
+3. *(Optional)* Add `NVIDIA_API_KEY` under Environment Variables for live LLM streaming.
+4. Click **Deploy**!
+
+For detailed instructions, see the [Vercel Deployment Guide](docs/deployment.md).
+
+---
+
 ## 🐳 Docker Deployment
 
 Run the complete multi-stage container (builds React + serves FastAPI):
